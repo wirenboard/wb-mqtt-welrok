@@ -1,3 +1,9 @@
+wb-welrok (0.0.6) UNRELEASED; urgency=low
+
+  * builddeb-fixups: add py2-minimal dependency; remove executable bit from .install
+
+ -- Vladimir Romanov <v.romanov@wirenboard.com>  Wed, 19 Jun 2024 12:42:21 +0300
+
 wb-welrok (0.0.5) UNRELEASED; urgency=low
 
   * wb-welrok: Create config file
