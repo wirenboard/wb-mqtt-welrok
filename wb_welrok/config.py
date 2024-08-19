@@ -15,7 +15,7 @@ TEMP_CODES = {
 }
 
 TOPIC_NAMES_TRANSLATE = {
-        'Overheat temperature': 'Внутренняя температура устройтсва',
+        'Overheat temperature': 'Внутренняя температура устройства',
         'Floor temperature': 'Температура пола',
         'Air temperature': 'Температура воздуха',
         'MK temperature': 'Температура процессора'
@@ -62,5 +62,5 @@ PARAMS_CHOISE : dict[str, Callable] = {
     'bright': lambda x: round(float(x), 2),
     'setTemp': lambda x: round(float(x), 2),
     'mode': lambda x: MODE_CODES[int(x)],
-    'load': lambda x: 'off' if x == '0' else 'on',
+    'load': lambda x: 'Выключено' if x == '0' else 'Включено',
 }

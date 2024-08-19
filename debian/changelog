@@ -1,3 +1,9 @@
+wb-welrok (0.0.9) UNRELEASED; urgency=low
+
+  * wb-welrok: Fix controls text mistake
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Mon, 19 Aug 2024 12:09:11 +0300
+
 wb-welrok (0.0.8) UNRELEASED; urgency=low
 
   * wb-welrok: Fix descriptions mistake
