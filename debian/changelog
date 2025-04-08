@@ -1,3 +1,9 @@
+wb-welrok (0.0.12) UNRELEASED; urgency=low
+
+  * wb-welrok: Fix not changed mode to "Auto"
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 2 Apr 2025 12:34:18 +0300
+
 wb-welrok (0.0.11) UNRELEASED; urgency=low
 
   * wb-welrok: Fix bug with user/password mqtt broker

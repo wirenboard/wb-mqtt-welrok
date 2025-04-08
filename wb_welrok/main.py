@@ -331,12 +331,15 @@ class WelrokDevice:
                 await self.send_command_http({'sn': self._sn, 'par':[[2,2,str(config.MODE_CODES_REVERSE['Manual'])]]})
 
     async def set_mode(self, mode: str):
-        mode = [config.MODE_CODES_REVERSE.get(i) for i in mode.split('/') if config.MODE_CODES_REVERSE.get(i)]
-        if len(mode) > 0:
-            if self._mqtt:
-                self._mqtt.publish(self._mqtt_pub_base_topic + config.PARAMS_CODES[2], str(mode[0]))
-            else:
-                await self.send_command_http({'sn': self._sn, 'par':[[2,2,str(mode[0])]]})
+        mode = [config.MODE_CODES_REVERSE.get(i) for i in mode.split('/') if config.MODE_CODES_REVERSE.get(i)].__iter__().__next__()
+        if mode:
+            mode = str(mode)
+        else:
+            return
+        if self._mqtt:
+            self._mqtt.publish(self._mqtt_pub_base_topic + config.PARAMS_CODES[2], mode)
+        else:
+            await self.send_command_http({'sn': self._sn, 'par':[[2,2,mode]]})
 
     async def set_bright(self, bright: int):
         if 0 <= bright <= 10:
