@@ -70,6 +70,13 @@
                     "default": "tcp://localhost:1883",
                     "description": "Broker Uri with login and password. Required if broker has user and password. Example line: 'tcp://user:password@localhost:1883'",
                     "propertyOrder": 8
+                },
+                "mqtt_enable": {
+                    "type": "boolean",
+                    "title": "Use MQTT",
+                    "default": false,
+                    "description": "Use mqtt for control",
+                    "propertyOrder": 9
                 }
             },
             "required": [
@@ -79,7 +86,8 @@
               "inner_mqtt_client_id",
               "inner_mqtt_pubprefix",
               "inner_mqtt_subprefix",
-              "serial_number"
+              "serial_number",
+              "mqtt_enable"
             ],
             "options": {
                 "disable_edit_json": true,
@@ -144,7 +152,8 @@
             "Id specified on the Welrok thermostat in the Client ID field": "Id заданный на терморегуляторе Welrok в поле Client ID",
             "Topic specified on the Welrok thermostat in the Publish prefix field": "Топик заданный на терморегуляторе Welrok в поле Publish prefix",
             "Topic specified on the Welrok thermostat in the Subscribe path field": "Топик заданный на терморегуляторе Welrok в поле Subscribe path",
-            "Broker Uri with login and password. Required if broker has user and password. Example line: 'tcp://user:password@localhost:1883'": "Uri брокера с логиным и паролем. Обязательна, если у брокера установлены пользователь и пароль. Пример строки: 'tcp://user:password@localhost:1883'"
+            "Broker Uri with login and password. Required if broker has user and password. Example line: 'tcp://user:password@localhost:1883'": "Uri брокера с логиным и паролем. Обязательна, если у брокера установлены пользователь и пароль. Пример строки: 'tcp://user:password@localhost:1883'",
+            "Use mqtt for control": "Использовать mqtt для управления"
         }
     }    
 }
