@@ -371,6 +371,7 @@ class WelrokClient:
     def __init__(self, devices_config):
         self.mqtt_client_running = False
         self.devices_config = devices_config
+        self.mqtt_server_uri = devices_config[0]["mqtt_server_uri"] if devices_config and len(devices_config) > 0 else None
 
     async def _exit_gracefully(self):
         tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
@@ -400,7 +401,7 @@ class WelrokClient:
             event_loop = asyncio.get_event_loop()
             event_loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
             event_loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
-            mqtt_client = MQTTClient("welrok", DEFAULT_BROKER_URL)
+            mqtt_client = MQTTClient("welrok", self.mqtt_server_uri or DEFAULT_BROKER_URL)
             mqtt_client.user_data_set(event_loop)
             mqtt_client.on_connect = self._on_mqtt_client_connect
             mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
