@@ -1,3 +1,4 @@
+import logging
 import random
 import string
 from urllib.parse import urlparse
@@ -30,17 +31,28 @@ class MQTTClient(paho_socket.Client):
         if scheme == "ws" and self._broker_url.path:
             self.ws_set_options(self._broker_url.path)
 
-        if scheme == "unix":
-            self.sock_connect(self._broker_url.path)
-        elif scheme in ["mqtt-tcp", "tcp", "ws"]:
-            self.connect(self._broker_url.hostname, self._broker_url.port)
-        else:
-            raise Exception("Unkown mqtt url scheme: " + scheme)
-
         if self._is_threaded:
             self.loop_start()
+        
+        try:
+            if scheme == "unix":
+                self.sock_connect(self._broker_url.path)
+            elif scheme in ["mqtt-tcp", "tcp", "ws"]:
+                self.connect(self._broker_url.hostname, self._broker_url.port)
+            else:
+                raise Exception("Unkown mqtt url scheme: " + scheme)
+        except Exception:
+            if self._is_threaded:
+                try:
+                    self.loop_stop()
+                except Exception:
+                    logging.getLogger(__name__).exception("Error stopping loop after failed start")
+            raise
 
     def stop(self) -> None:
+        try:
+            self.disconnect()
+        except Exception:
+            logging.getLogger(__name__).exception("Error during MQTT disconnect")
         if self._is_threaded:
             self.loop_stop()
-        self.disconnect()

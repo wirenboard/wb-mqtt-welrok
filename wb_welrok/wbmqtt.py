@@ -112,7 +112,7 @@ class Device:
     def _publish_control_meta(self, mqtt_control_name: str, meta: ControlMeta) -> None:
         meta_dict = {
             "type": meta.control_type,
-            "readonly": meta.read_only,
+            "readonly": bool(meta.read_only),
             "title": {}
         }
         if meta.title is not None:
@@ -120,22 +120,30 @@ class Device:
         if meta.title_en is not None:
             meta_dict["title"].update({"en": meta.title_en})
         if meta.units is not None:
-            meta_dict["title"].update({"units": meta.units})
-        for key in ("min", "max", "order", "error"):
-            if getattr(meta, key) is not None:
-                meta_dict[key] = getattr(meta, key)
+            meta_dict["units"] = meta.units
 
-        if meta_dict:
-            meta_json = json.dumps(meta_dict)
-            self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", meta_json)
+        if meta.min is not None:
+            meta_dict["min"] = meta.min
+        if meta.max is not None:
+            meta_dict["max"] = meta.max
+        if meta.order is not None:
+            meta_dict["order"] = meta.order
+        if meta.error is not None:
+            meta_dict["error"] = meta.error
+
+        meta_json = json.dumps(meta_dict)
+        self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", meta_json)
 
     def _publish(self, topic: str, value: str) -> None:
         if value is None:
             logging.debug('Clear "%s"', topic)
         else:
             logging.debug('Publish "%s" "%s"', topic, value)
-        self._mqtt_client.publish(topic, value, retain=True)
-
+        payload = "" if value is None else value
+        try:
+            self._mqtt_client.publish(topic, payload, retain=True)
+        except Exception:
+            logging.getLogger(__name__).exception("Failed to publish to %s", topic)
 
 def retain_hack(mqtt_client) -> None:
     random.seed()
@@ -152,7 +160,6 @@ def retain_hack(mqtt_client) -> None:
     sem.acquire(timeout=10)  # pylint: disable=R1732
     mqtt_client.unsubscribe(retain_hack_topic)
     mqtt_client.message_callback_remove(retain_hack_topic)
-
 
 def remove_topics_by_device_prefix(mqtt_client, device_prefix: str) -> None:
     topics = []

@@ -1,8 +1,14 @@
+wb-welrok (0.0.14) RELEASED; urgency=low
+
+  * wb-welrok: Refactoring. Fix blocking devices
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 26 Nov 2025 17:07:03 +0300
+
 wb-welrok (0.0.13) RELEASED; urgency=low
 
   * wb-welrok: Fix control with http. Add MQTT use flag in propery. Add support OZ version
 
- -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 18 Sep 2025 14:25:53 +0300
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 18 Sep 2025 14:25:53 +0300
 
 wb-welrok (0.0.12) UNRELEASED; urgency=low
 
