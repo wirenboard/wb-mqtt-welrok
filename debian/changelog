@@ -1,3 +1,9 @@
+wb-welrok (0.0.15) RELEASED; urgency=low
+
+  * wb-welrok: Changing device initialization
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Fri, 28 Nov 2025 14:00:12 +0300
+
 wb-welrok (0.0.14) RELEASED; urgency=low
 
   * wb-welrok: Refactoring. Fix blocking devices

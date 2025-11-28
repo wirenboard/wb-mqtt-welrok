@@ -504,8 +504,146 @@ class WelrokClient:
         logger.info("SIGTERM or SIGINT received, exiting")
 
     async def run(self):
-        welrok_devices = []
         mqtt_devices = []
+        active_devices = {}
+        initializing = set()
+        monitor_interval = 5
+
+        async def init_device(device_config):
+            device_id = device_config.get("device_id")
+            if not device_id:
+                logger.error("Device config has no device_id: %s", device_config)
+                return
+            if device_id in initializing:
+                return
+            initializing.add(device_id)
+            try:
+                entry = active_devices.get(device_id)
+                if entry and not entry['task'].done():
+                    return
+
+                welrok_device = WelrokDevice(device_config)
+                logger.debug("Initializing Welrok_device: %s", welrok_device)
+
+                if not welrok_device._url:
+                    logger.debug("Device %s has no HTTP URL, creating MQTT-only device", welrok_device.id)
+                    default_state = {
+                        "powerOff": 1,
+                        "bright": 9,
+                        "setTemp": 20,
+                        "mode": "0",
+                        "read_only_temp": {},
+                        "load": "off"
+                    }
+                    mqtt_device = MQTTDevice(mqtt_client, default_state)
+
+                    prev = active_devices.pop(device_id, None)
+                    if prev and prev.get('mqtt'):
+                        try:
+                            prev['mqtt'].remove()
+                        except Exception:
+                            logger.exception("Error removing previous mqtt device for %s", device_id)
+
+                    mqtt_devices.append(mqtt_device)
+                    mqtt_device.set_welrok_device(welrok_device)
+                    welrok_device.set_mqtt_device(mqtt_device)
+                    mqtt_device.publicate()
+                    task = asyncio.create_task(welrok_device.run())
+                    active_devices[device_id] = {'task': task, 'welrok': welrok_device, 'mqtt': mqtt_device}
+
+                    def _done_callback(t, dev_id=device_id):
+                        logger.info("Device task %s finished", dev_id)
+                        entry2 = active_devices.pop(dev_id, None)
+                        if entry2 and entry2.get('mqtt'):
+                            try:
+                                entry2['mqtt'].remove()
+                            except Exception:
+                                logger.exception("Error removing mqtt device %s", dev_id)
+
+                    task.add_done_callback(_done_callback)
+                    return
+
+                params_states = await welrok_device.get_device_state(config.CMD_CODES['params'])
+                if params_states is None:
+                    logger.error("Device %s params unavailable, skipping device initialization", welrok_device.id)
+                    return
+
+                device_controls_state = welrok_device.parse_device_params_state(params_states) or {}
+                telemetry = await welrok_device.get_device_state(config.CMD_CODES['telemetry']) or {}
+                device_controls_state.update({
+                    'read_only_temp': welrok_device.parse_temperature_response(telemetry),
+                    'load': welrok_device.get_load(telemetry)
+                })
+
+                mqtt_device = MQTTDevice(mqtt_client, device_controls_state)
+
+                prev = active_devices.pop(device_id, None)
+                if prev and prev.get('mqtt'):
+                    try:
+                        prev['mqtt'].remove()
+                    except Exception:
+                        logger.exception("Error removing previous mqtt device for %s", device_id)
+
+                mqtt_devices.append(mqtt_device)
+                mqtt_device.set_welrok_device(welrok_device)
+                welrok_device.set_mqtt_device(mqtt_device)
+                mqtt_device.publicate()
+                task = asyncio.create_task(welrok_device.run())
+                active_devices[device_id] = {'task': task, 'welrok': welrok_device, 'mqtt': mqtt_device}
+
+                def _done_callback(t, dev_id=device_id):
+                    logger.info("Device task %s finished", dev_id)
+                    entry2 = active_devices.pop(dev_id, None)
+                    if entry2 and entry2.get('mqtt'):
+                        try:
+                            entry2['mqtt'].remove()
+                        except Exception:
+                            logger.exception("Error removing mqtt device %s", dev_id)
+
+                task.add_done_callback(_done_callback)
+
+            except Exception:
+                logger.exception("Failed to initialize device %s — skipping", device_config.get('device_title'))
+            finally:
+                initializing.discard(device_id)
+
+        async def monitor_devices():
+            while True:
+                try:
+                    configured = list(self.devices_config)  # snapshot
+                    configured_ids = set()
+
+                    for device_config in configured:
+                        device_id = device_config.get("device_id")
+                        if not device_id:
+                            logger.warning("Skipping device with no id in config: %s", device_config)
+                            continue
+                        configured_ids.add(device_id)
+                        entry = active_devices.get(device_id)
+                        if not entry or entry['task'].done():
+                            asyncio.create_task(init_device(device_config))
+
+                    for dev_id in list(active_devices.keys()):
+                        if dev_id not in configured_ids:
+                            entry = active_devices.pop(dev_id, None)
+                            if entry:
+                                logger.info("Device %s removed from config — cancelling task and cleaning up", dev_id)
+                                try:
+                                    entry['task'].cancel()
+                                except Exception:
+                                    logger.exception("Error cancelling device task %s", dev_id)
+                                try:
+                                    if entry.get('mqtt'):
+                                        entry['mqtt'].remove()
+                                except Exception:
+                                    logger.exception("Error removing mqtt device %s", dev_id)
+
+                    await asyncio.sleep(monitor_interval)
+                except asyncio.CancelledError:
+                    logger.debug("monitor_devices cancelled")
+                    break
+                except Exception:
+                    logger.exception("Error in monitor_devices loop")
 
         try:
             event_loop = asyncio.get_event_loop()
@@ -518,77 +656,64 @@ class WelrokClient:
             mqtt_client.start()
             for _ in range(50):
                 if self.mqtt_client_running:
-                        break
+                    break
                 await asyncio.sleep(0.1)
             if not self.mqtt_client_running:
                 logger.warning("MQTT client did not connect within timeout; publications may be queued or lost")
-
             logger.debug("MQTT client started")
 
-            for device_config in self.devices_config:
-                try:
-                    welrok_device = WelrokDevice(device_config)
-                    logger.debug(f"Welrok_device: {welrok_device}")
-                    if not welrok_device._url:
-                        logger.debug("Device %s has no HTTP URL, creating MQTT-only device", welrok_device.id)
-                        default_state = {
-                            "powerOff": 1,
-                            "bright": 9,
-                            "setTemp": 20,
-                            "mode": "0",
-                            "read_only_temp": {},
-                            "load": "off"
-                        }
-                        mqtt_device = MQTTDevice(mqtt_client, default_state)
-                        mqtt_devices.append(mqtt_device)
-                        mqtt_device.set_welrok_device(welrok_device)
-                        welrok_device.set_mqtt_device(mqtt_device)
-                        mqtt_device.publicate()
-                        welrok_devices.append(asyncio.create_task(welrok_device.run()))
-                        continue
+            monitor_task = asyncio.create_task(monitor_devices())
 
-                    params_states = await welrok_device.get_device_state(config.CMD_CODES['params'])
-                    if params_states is None:
-                        logger.error("Device %s params unavailable, skipping device initialization", welrok_device.id)
-                        continue
-
-                    device_controls_state = welrok_device.parse_device_params_state(params_states) or {}
-                    telemetry = await welrok_device.get_device_state(config.CMD_CODES['telemetry']) or {}
-                    device_controls_state.update({
-                        'read_only_temp': welrok_device.parse_temperature_response(telemetry),
-                        'load': welrok_device.get_load(telemetry)
-                    })
-
-                    mqtt_device = MQTTDevice(mqtt_client, device_controls_state)
-                    mqtt_devices.append(mqtt_device)
-                    mqtt_device.set_welrok_device(welrok_device)
-                    welrok_device.set_mqtt_device(mqtt_device)
-                    mqtt_device.publicate()
-                    welrok_devices.append(asyncio.create_task(welrok_device.run()))
-
-                except Exception:
-                    logger.exception("Failed to initialize device %s — skipping", device_config.get('device_title'))
-
-            for welrok_device in welrok_devices:
-                await welrok_device
+            await monitor_task
 
         except (ConnectionError, ConnectionRefusedError) as e:
             logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
             return 1
         except asyncio.CancelledError:
             logger.debug("Run welrok client task cancelled")
+            try:
+                monitor_task.cancel()
+            except Exception:
+                pass
+            for dev_id, entry in list(active_devices.items()):
+                try:
+                    entry['task'].cancel()
+                except Exception:
+                    logger.exception("Error cancelling device %s", dev_id)
+                try:
+                    if entry.get('mqtt'):
+                        entry['mqtt'].remove()
+                except Exception:
+                    logger.exception("Error removing mqtt device %s", dev_id)
             return 0 if self.mqtt_client_running else 1
         except Exception as e:
             logger.debug(f'Error: {e}.\n{traceback.format_exc()}')
         finally:
+            try:
+                if 'monitor_task' in locals():
+                    monitor_task.cancel()
+            except Exception:
+                pass
+
+            for dev_id, entry in list(active_devices.items()):
+                try:
+                    entry['task'].cancel()
+                except Exception:
+                    logger.exception("Error cancelling device %s", dev_id)
+                if entry.get('mqtt'):
+                    try:
+                        entry['mqtt'].remove()
+                    except Exception:
+                        logger.exception("Error removing mqtt device %s", dev_id)
 
             if self.mqtt_client_running:
                 for mqtt_device in mqtt_devices:
-                    mqtt_device.remove()
-
+                    try:
+                        mqtt_device.remove()
+                    except Exception:
+                        logger.exception("Error removing mqtt_device")
                 mqtt_client.stop()
                 logger.debug("MQTT client stopped")
-
 
 def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict:
     with open(config_filepath, "r", encoding="utf-8") as config_file, open(
