@@ -8,6 +8,9 @@ import paho_socket
 # DEFAULT_BROKER_URL = "unix:///var/run/mosquitto/mosquitto.sock"
 DEFAULT_BROKER_URL = "tcp://localhost:1883"
 
+MQTT_KEEPALIVE = 30  # seconds
+MQTT_RECONNECT_MIN_DELAY = 1  # seconds
+MQTT_RECONNECT_MAX_DELAY = 120  # seconds
 
 class MQTTClient(paho_socket.Client):
     def __init__(self, client_id_prefix: str, broker_url: str = DEFAULT_BROKER_URL, is_threaded: bool = True):
@@ -31,14 +34,16 @@ class MQTTClient(paho_socket.Client):
         if scheme == "ws" and self._broker_url.path:
             self.ws_set_options(self._broker_url.path)
 
+        # Setup automatic reconnection
+        self.setup_reconnect()
+
         if self._is_threaded:
             self.loop_start()
-        
         try:
             if scheme == "unix":
                 self.sock_connect(self._broker_url.path)
             elif scheme in ["mqtt-tcp", "tcp", "ws"]:
-                self.connect(self._broker_url.hostname, self._broker_url.port)
+                self.connect(self._broker_url.hostname, self._broker_url.port, keepalive=MQTT_KEEPALIVE)
             else:
                 raise Exception("Unkown mqtt url scheme: " + scheme)
         except Exception:
@@ -56,3 +61,6 @@ class MQTTClient(paho_socket.Client):
             logging.getLogger(__name__).exception("Error during MQTT disconnect")
         if self._is_threaded:
             self.loop_stop()
+
+    def setup_reconnect(self, min_delay=MQTT_RECONNECT_MIN_DELAY, max_delay=MQTT_RECONNECT_MAX_DELAY):
+        super().reconnect_delay_set(min_delay=min_delay, max_delay=max_delay)
