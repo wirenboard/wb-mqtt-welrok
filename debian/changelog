@@ -1,3 +1,11 @@
+wb-welrok (0.0.16) RELEASED; urgency=low
+
+  * Add http timeouts
+  * Fix f-strings for logger
+  * Add message timeouts for mqtt
+  * Fix for http connections ssl off
+  * Add HTTP_PERIODIC_RETRIES, HTTP_FAILURE_THRESHOLD
+
 wb-welrok (0.0.15) RELEASED; urgency=low
 
   * wb-welrok: Changing device initialization
