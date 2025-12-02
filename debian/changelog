@@ -6,6 +6,8 @@ wb-welrok (0.0.16) RELEASED; urgency=low
   * Fix for http connections ssl off
   * Add HTTP_PERIODIC_RETRIES, HTTP_FAILURE_THRESHOLD
 
+ -- Victor Fedorov <victor.fedorov@wirenboard.com>  Thu, 27 Nov 2025 16:39:03 +0300
+
 wb-welrok (0.0.15) RELEASED; urgency=low
 
   * wb-welrok: Changing device initialization
