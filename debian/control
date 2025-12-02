@@ -11,9 +11,7 @@ Rules-Requires-Root: no
 Package: wb-welrok
 Section: python
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, python3-aiohttp (>= 3.7.4), python3-jsonschema (>= 3.2.0), python3-paho-mqtt (>= 1.5.1)
+Depends: ${misc:Depends}, ${python3:Depends}, python3-aiohttp (>= 3.7.4), python3-jsonschema (>= 3.2.0), python3-paho-mqtt (>= 1.5.1)
 Description: Wiren Board MQTT Driver for Welrok thermostat
-    This is a distribution of "wb-welrok" as a self-contained
-    Python virtualenv wrapped into a Debian package ("omnibus" package,
-    all passengers on board). The packaged virtualenv is kept in sync with
-    the host's interpreter automatically.
+ This is a driver for Welrok thermostats that communicates via MQTT.
+ The package includes all necessary dependencies for proper operation.

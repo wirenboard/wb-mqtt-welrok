@@ -13,34 +13,15 @@
 # Increase trace logging, see debhelper(7) (uncomment to enable)
 #DH_VERBOSE=1
 
-export DH_VIRTUALENV_INSTALL_ROOT=/opt/venvs
-SNAKE=/usr/bin/python3
-EXTRA_REQUIREMENTS=--upgrade-pip --preinstall "setuptools>=38" --preinstall "wheel"
-DH_VENV_ARGS=--builtin-venv --python=$(SNAKE) $(EXTRA_REQUIREMENTS)
-PACKAGE=$(shell dh_listpackages)
-VERSION=$(shell $(SNAKE) setup.py --version)
-SDIST_DIR=debian/$(PACKAGE)-$(VERSION)
+export PYBUILD_NAME=wb_welrok
 
-
-.PHONY: clean build-arch override_dh_virtualenv override_dh_strip
-	# override_dh_shlibdeps
+.PHONY: clean override_dh_auto_clean override_dh_strip
 
 clean:
-	test ! -d dist || rm -rf dist
-	test ! -d $(SDIST_DIR) || rm -rf $(SDIST_DIR)/*
 	dh $@
-
-build-arch:
-	$(SNAKE) setup.py sdist --formats tar
-	mkdir -p $(SDIST_DIR)
-	tar -x -C $(SDIST_DIR) --strip-components=1 --exclude '*.egg-info' -f dist/*.tar
-	dh $@ $(DH_VENV_ARGS) --sourcedir .
 
 %:
 	dh $@ --with systemd --buildsystem=pybuild
-
-override_dh_virtualenv:
-	dh_virtualenv $(DH_VENV_ARGS)
 
 override_dh_auto_clean:
 	# Skip auto clean to avoid pyversions error
@@ -50,5 +31,6 @@ override_dh_strip:
 
 override_dh_auto_install:
 	dh_auto_install
+	find debian/wb-welrok -type d -name __pycache__ -exec rm -rf {} +
 	dh_systemd_enable || true
 	dh_systemd_start || true
