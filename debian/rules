@@ -42,6 +42,9 @@ build-arch:
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
 
+override_dh_auto_clean:
+	# Skip auto clean to avoid pyversions error
+
 override_dh_strip:
 	dh_strip --exclude=cffi --exclude=_imaging
 
