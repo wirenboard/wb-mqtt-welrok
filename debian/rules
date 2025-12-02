@@ -51,7 +51,10 @@ override_dh_strip:
 	dh_strip --exclude=cffi --exclude=_imaging
 
 override_dh_auto_install:
+	# Install files then remove any python __pycache__ directories from the
+	# binary package area to avoid lintian's package-installs-python-pycache-dir
 	dh_auto_install
+	find debian/$(shell dh_listpackages) -type d -name '__pycache__' -exec rm -rf {} + || true
 	dh_systemd_enable || true
 	dh_systemd_start || true
 #override_dh_shlibdeps:
