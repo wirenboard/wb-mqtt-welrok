@@ -1,6 +1,5 @@
 from typing import Callable
 
-
 CONFIG_FILEPATH = "/etc/wb-welrok.conf"
 SCHEMA_FILEPATH = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-welrok.schema.json"
 
