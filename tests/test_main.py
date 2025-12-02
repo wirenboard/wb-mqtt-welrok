@@ -43,7 +43,7 @@ class TestWelrokDevice:
             "device_id": "test",
             "device_title": "Test",
             "serial_number": "SN",
-            "mqtt_server_uri": "tcp://localhost:1883"
+            "mqtt_server_uri": "tcp://localhost:1883",
         }
         with patch("wb_welrok.main.MQTTClient"):
             device = WelrokDevice(config_dict)
@@ -54,13 +54,13 @@ class TestWelrokDevice:
         data = {
             "par": [
                 [125, 7, "0"],  # powerOff
-                [23, 2, "5"],   # bright
-                [31, 3, "250"], # setTemp
+                [23, 2, "5"],  # bright
+                [31, 3, "250"],  # setTemp
             ]
         }
-        
+
         result = welrok_device.parse_device_params_state(data)
-        
+
         assert result is not None
         assert "powerOff" in result
         assert "bright" in result
@@ -73,9 +73,9 @@ class TestWelrokDevice:
             "t.1": "320",  # 320 / 16 = 20.0
             "t.2": "352",  # 352 / 16 = 22
         }
-        
+
         result = welrok_device.parse_temperature_response(data)
-        
+
         assert "Floor temperature" in result
         assert result["Floor temperature"] == "20.0"
 
@@ -83,7 +83,7 @@ class TestWelrokDevice:
         """Test getting load status"""
         telemetry_on = {"f.0": "1"}
         telemetry_off = {"f.0": "0"}
-        
+
         assert welrok_device.get_load(telemetry_on) == "Включено"
         assert welrok_device.get_load(telemetry_off) == "Выключено"
         assert welrok_device.get_load({}) == "off"
@@ -103,7 +103,7 @@ class TestMQTTDevice:
             "read_only_temp": {
                 "Floor temperature": "20.0",
                 "Air temperature": "21.0",
-            }
+            },
         }
 
     @pytest.fixture
@@ -124,9 +124,9 @@ class TestMQTTDevice:
         mock_welrok = MagicMock()
         mock_welrok.title = "Test Device"
         mock_welrok.sn = "SN123"
-        
+
         mqtt_device.set_welrok_device(mock_welrok)
-        
+
         assert mqtt_device._welrok_device is mock_welrok
         assert mqtt_device._root_topic == "/devices/Test Device"
 
@@ -135,14 +135,14 @@ class TestMQTTDevice:
         mock_welrok = MagicMock()
         mock_welrok.sn = "SN123"
         mqtt_device._welrok_device = mock_welrok
-        
+
         mock_loop = MagicMock()
         mock_loop.is_closed.return_value = True
         mqtt_device._loop = mock_loop
-        
+
         msg = MagicMock()
         msg.payload.decode.return_value = "1"
-        
+
         # Should not raise an exception
         mqtt_device._on_message_power(None, None, msg)
 
@@ -151,17 +151,17 @@ class TestMQTTDevice:
         mock_welrok = MagicMock()
         mock_welrok.sn = "SN123"
         mqtt_device._welrok_device = mock_welrok
-        
+
         mock_loop = MagicMock()
         mock_loop.is_closed.return_value = False
         mqtt_device._loop = mock_loop
-        
+
         msg = MagicMock()
         msg.payload.decode.return_value = "25"
-        
+
         with patch("asyncio.run_coroutine_threadsafe") as mock_run:
             mqtt_device._on_message_temperature(None, None, msg)
-            
+
             mock_run.assert_called_once()
 
 
@@ -193,24 +193,24 @@ class TestWelrokClient:
     def test_on_mqtt_client_connect_success(self, welrok_client):
         """Test successful MQTT client connection"""
         welrok_client._on_mqtt_client_connect(None, None, None, 0)
-        
+
         assert welrok_client.mqtt_client_running is True
 
     def test_on_mqtt_client_connect_failure(self, welrok_client):
         """Test failed MQTT client connection"""
         welrok_client._on_mqtt_client_connect(None, None, None, 1)
-        
+
         assert welrok_client.mqtt_client_running is False
 
     def test_on_mqtt_client_disconnect_normal(self, welrok_client):
         """Test normal disconnection (rc=0)"""
         welrok_client.mqtt_client_running = True
         mock_loop = MagicMock()
-        
+
         # rc=0 should not call _exit_gracefully
         with patch("asyncio.run_coroutine_threadsafe") as mock_run:
             welrok_client._on_mqtt_client_disconnect(None, mock_loop, 0)
-            
+
             mock_run.assert_not_called()
             assert welrok_client.mqtt_client_running is False
 
@@ -218,10 +218,10 @@ class TestWelrokClient:
         """Test disconnection with error (rc!=0)"""
         welrok_client.mqtt_client_running = True
         mock_loop = MagicMock()
-        
+
         # rc!=0 should call _exit_gracefully
         with patch("asyncio.run_coroutine_threadsafe") as mock_run:
             welrok_client._on_mqtt_client_disconnect(None, mock_loop, 1)
-            
+
             mock_run.assert_called_once()
             assert welrok_client.mqtt_client_running is False

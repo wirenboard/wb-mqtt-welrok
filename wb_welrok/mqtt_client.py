@@ -12,6 +12,7 @@ MQTT_KEEPALIVE = 30  # seconds
 MQTT_RECONNECT_MIN_DELAY = 1  # seconds
 MQTT_RECONNECT_MAX_DELAY = 120  # seconds
 
+
 class MQTTClient(paho_socket.Client):
     def __init__(self, client_id_prefix: str, broker_url: str = DEFAULT_BROKER_URL, is_threaded: bool = True):
         self._broker_url = urlparse(broker_url)
