@@ -13,3 +13,4 @@ doc_cmd
 Dockerfile
 helper
 */__pycache__/*
+pyproject.toml
