@@ -7,7 +7,12 @@ Standards-Version: 4.5.1
 
 Package: wb-welrok
 Architecture: all
-Depends: ${python:Depends}, ${misc:Depends}
+Depends: ${python:Depends},
+        ${misc:Depends},
+        python3-aiohttp (>= 3.7.4),
+        python-jsonschema (>= 3.2.0),
+        python-paho-mqtt (>= 1.5.1)
+
 Description: Wiren Board MQTT Driver for Welrok thermostat
     .
     This is a distribution of "wb-welrok" as a self-contained
