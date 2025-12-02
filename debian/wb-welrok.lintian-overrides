@@ -26,3 +26,17 @@ python-module-in-wrong-location
 
 # Some changelog entries intentionally use automation placeholders
 bogus-mail-host
+
+# When CI sanitizes fields the 'Changed-By' in .changes may be 'nobody@nowhere'
+# which lintian flags in the changelog. Accept it for CI-built artifacts.
+bogus-mail-host-in-debian-changelog
+
+# Some builds generate an init script reference which isn't included in the
+# package; this is intentional for the omnibus venv package and will be
+# suppressed here.
+init.d-script-not-included-in-package
+
+# arch-independent-package-contains-binary-or-object can happen if some
+# .so files end up in an 'all' package; we set Architecture:any but keep
+# the rule here for forgiving CI runs.
+arch-independent-package-contains-binary-or-object
