@@ -28,7 +28,7 @@ SDIST_DIR=debian/$(PACKAGE)-$(VERSION)
 clean:
 	test ! -d dist || rm -rf dist
 	test ! -d $(SDIST_DIR) || rm -rf $(SDIST_DIR)/*
-	dh $@ $(DH_VENV_ARGS)
+	dh $@ --with python-virtualenv
 
 build-arch:
 	$(SNAKE) setup.py sdist --formats tar
@@ -37,7 +37,7 @@ build-arch:
 	dh $@ $(DH_VENV_ARGS) --sourcedir .
 
 %:
-	dh $@ --with python-virtualenv --sourcedir . --with systemd
+	dh $@ --with python-virtualenv --with systemd --buildsystem=dh_virtualenv
 
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
