@@ -1,0 +1,28 @@
+# Lintian overrides for wb-welrok
+# These are acceptable because this package is an "omnibus" virtualenv package
+# created by dh-virtualenv. The venv contains many third-party artifacts that
+# lintian would otherwise complain about.
+
+# Files under /opt/venvs are expected for dh-virtualenv
+dir-or-file-in-opt
+
+# Virtualenvs will include .pyc/__pycache__ directories while building —
+# we try to delete them, but leave an override for any leftovers
+package-installs-python-pycache-dir
+
+# Scripts inside the virtualenv have interpreter paths pointing to the venv
+# and may trip lintian; this is expected for bundled venvs
+python3-script-but-no-python3-dep
+wrong-path-for-interpreter
+
+# Binary extensions provided by upstream are not stripped by dh-virtualenv
+# and cannot be stripped reliably; suppress the warning
+unstripped-binary-or-object
+
+# Misc warnings about missing manpages, python module location are expected
+# because the package is an omnibus virtualenv
+no-manual-page
+python-module-in-wrong-location
+
+# Some changelog entries intentionally use automation placeholders
+bogus-mail-host

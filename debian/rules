@@ -42,6 +42,20 @@ build-arch:
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
 
+	# Clean up artifacts that are noisy for lintian and unnecessary in the
+	# packed venv (wheel caches, __pycache__ directories, Windows executables,
+	# redundant easy_install wrappers, compiled python cache files).
+	VENV=debian/$(PACKAGE)/opt/venvs/$(PACKAGE)
+	# remove wheel caches created by pip
+	rm -rf $(VENV)/share/python-wheels || true
+	# remove compiled python caches
+	find $(VENV) -type d -name '__pycache__' -exec rm -rf {} + || true
+	find $(VENV) -type f -name '*.pyc' -exec rm -f {} + || true
+	# remove leftover wheel and pip binaries/metadata we don't want packaged
+	find $(VENV) -type f -iname '*.exe' -exec rm -f {} + || true
+	rm -f $(VENV)/bin/easy_install* || true
+
+
 override_dh_auto_clean:
 	# Prevent dh_auto_clean from invoking python-distutils/pyversions which
 	# isn't available in some build environments; make this step a no-op.
