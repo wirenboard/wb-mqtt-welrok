@@ -42,6 +42,11 @@ build-arch:
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
 
+override_dh_auto_clean:
+	# Prevent dh_auto_clean from invoking python-distutils/pyversions which
+	# isn't available in some build environments; make this step a no-op.
+	true
+
 override_dh_strip:
 	dh_strip --exclude=cffi --exclude=_imaging
 
