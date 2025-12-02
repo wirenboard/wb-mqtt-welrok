@@ -202,8 +202,8 @@ class TestMQTTClient:
 
         # Mock the parent class method
         with patch.object(client.__class__.__bases__[0], "reconnect_delay_set") as mock_reconnect:
-            client.setup_reconnect(min_delay=2, max_delay=60)
-            mock_reconnect.assert_called_once_with(min_delay=2, max_delay=60)
+            client.setup_reconnect(min_delay=2, max_delay=90)
+            mock_reconnect.assert_called_once_with(min_delay=2, max_delay=90)
 
     def test_setup_reconnect_default_values(self):
         """Test reconnect setup with default values"""
