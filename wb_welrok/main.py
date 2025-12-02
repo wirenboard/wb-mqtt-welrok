@@ -98,7 +98,12 @@ class MQTTDevice:
         for order_number, mode_title in enumerate(config.MODE_CODES.values(), 7):
             self._device.create_control(
                 mode_title,
-                wbmqtt.ControlMeta(title=f"Установить режим работы "{config.MODE_NAMES_TRANSLATE[mode_title]}"", title_en=f"Set mode "{mode_title}"", control_type="pushbutton", order=order_number, read_only=False), "1"
+                wbmqtt.ControlMeta(
+                    title=f"""Установить режим работы "{config.MODE_NAMES_TRANSLATE[mode_title]}" """, 
+                    title_en=f"""Set mode "{mode_title}" """, 
+                    control_type="pushbutton",
+                     order=order_number, 
+                     read_only=False), "1"
             )
             self._device.add_control_message_callback(mode_title, self._on_message_mode)
 
