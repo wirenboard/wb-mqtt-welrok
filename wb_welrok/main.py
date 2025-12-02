@@ -57,11 +57,11 @@ class MQTTDevice:
         )
         self._device.create_control(
             "Power", wbmqtt.ControlMeta(title="Включение / выключение", title_en="Power", control_type="switch", order=1, read_only=False),
-            self._device_state['powerOff'],
+            self._device_state["powerOff"],
         )
         self._device.add_control_message_callback("Power", self._on_message_power)
 
-        start_bright = str(int(self._device_state['bright']) * 10) if int(self._device_state['bright']) != 9 else '100'
+        start_bright = str(int(self._device_state["bright"]) * 10) if int(self._device_state["bright"]) != 9 else "100"
         self._device.create_control(
             "Bright",
             wbmqtt.ControlMeta(title="Яркость дисплея", title_en="Display Brightness", units="%", control_type="range", order=2, read_only=False, max_value=100),
@@ -72,41 +72,41 @@ class MQTTDevice:
         self._device.create_control(
             "Set temperature",
             wbmqtt.ControlMeta(title="Установка", title_en="Set floor temperature", units="deg C", control_type="range", order=3, read_only=False, min_value=5, max_value=45),
-            self._device_state['setTemp'],
+            self._device_state["setTemp"],
         )
         self._device.add_control_message_callback("Set temperature", self._on_message_temperature)
 
         self._device.create_control(
-            'Current mode',
-            wbmqtt.ControlMeta(title='Текущий режим работы', title_en="Current mode", control_type="text", order=4, read_only=True),
-            self._device_state['mode']
+            "Current mode",
+            wbmqtt.ControlMeta(title="Текущий режим работы", title_en="Current mode", control_type="text", order=4, read_only=True),
+            self._device_state["mode"]
         )
 
         self._device.create_control(
-            'Load',
-            wbmqtt.ControlMeta(title='Нагрев', title_en="Load", control_type="text", order=5, read_only=True),
-            self._device_state['load']
+            "Load",
+            wbmqtt.ControlMeta(title="Нагрев", title_en="Load", control_type="text", order=5, read_only=True),
+            self._device_state["load"]
         )
 
         self._device.create_control(
             "Set temperature value",
             wbmqtt.ControlMeta(title="Установка", title_en="Set floor temperature", control_type="temperature", order=6, read_only=False, min_value=5, max_value=45),
-            self._device_state['setTemp'],
+            self._device_state["setTemp"],
         )
         self._device.add_control_message_callback("Set temperature value", self._on_message_temperature_value)
 
         for order_number, mode_title in enumerate(config.MODE_CODES.values(), 7):
             self._device.create_control(
                 mode_title,
-                wbmqtt.ControlMeta(title=f'Установить режим работы "{config.MODE_NAMES_TRANSLATE[mode_title]}"', title_en=f'Set mode "{mode_title}"', control_type="pushbutton", order=order_number, read_only=False), "1"
+                wbmqtt.ControlMeta(title=f"Установить режим работы "{config.MODE_NAMES_TRANSLATE[mode_title]}"", title_en=f"Set mode "{mode_title}"", control_type="pushbutton", order=order_number, read_only=False), "1"
             )
             self._device.add_control_message_callback(mode_title, self._on_message_mode)
 
-        for order_number, read_only_temp in enumerate(self._device_state['read_only_temp'], 7 + len(config.MODE_CODES)):
+        for order_number, read_only_temp in enumerate(self._device_state["read_only_temp"], 7 + len(config.MODE_CODES)):
             self._device.create_control(
                 read_only_temp,
                 wbmqtt.ControlMeta(title=config.TOPIC_NAMES_TRANSLATE[read_only_temp], title_en=read_only_temp, control_type="text", order=order_number, read_only=True),
-                self._device_state['read_only_temp'][read_only_temp],
+                self._device_state["read_only_temp"][read_only_temp],
             )
 
 
@@ -147,7 +147,7 @@ class MQTTDevice:
 
     def _on_message_power(self, _, __, msg):
         try:
-            power = 0 if msg.payload.decode("utf-8") == '1' else 1
+            power = 0 if msg.payload.decode("utf-8") == "1" else 1
         except Exception:
             logger.exception("Failed to decode power payload")
             return
@@ -239,19 +239,19 @@ class MQTTDevice:
 
 class WelrokDevice:
     def __init__(self, properties):
-        self._id = properties.get('device_id', 'unknown_id')
-        self._title = properties.get('device_title', 'unknown_title')
-        self._sn = properties.get('serial_number', 'unknown_sn')
-        self._ip = properties.get('device_ip', 'unknown_ip')
-        self._mqtt_enable = properties.get('mqtt_enable', False)
-        self._mqtt_server_uri = properties.get('mqtt_server_uri', DEFAULT_BROKER_URL)
-        self._url = f'http://{properties.get("device_ip")}/api.cgi' if properties.get("device_ip") else None
+        self._id = properties.get("device_id", "unknown_id")
+        self._title = properties.get("device_title", "unknown_title")
+        self._sn = properties.get("serial_number", "unknown_sn")
+        self._ip = properties.get("device_ip", "unknown_ip")
+        self._mqtt_enable = properties.get("mqtt_enable", False)
+        self._mqtt_server_uri = properties.get("mqtt_server_uri", DEFAULT_BROKER_URL)
+        self._url = f"http://{properties.get("device_ip")}/api.cgi" if properties.get("device_ip") else None
         self._wb_mqtt_device = None
         self._mqtt = MQTTClient(self._title, self._mqtt_server_uri)
         self._mqtt.user_data_set(self)
         self._subscribed_topics = set()
-        self._mqtt_pub_base_topic = f'{properties.get("inner_mqtt_pubprefix", "")}{properties.get("inner_mqtt_client_id", "")}/set/'
-        self._mqtt_sub_base_topic = f'{properties.get("inner_mqtt_subprefix", "")}{properties.get("inner_mqtt_client_id", "")}/get/'
+        self._mqtt_pub_base_topic = f"{properties.get("inner_mqtt_pubprefix", "")}{properties.get("inner_mqtt_client_id", "")}/set/"
+        self._mqtt_sub_base_topic = f"{properties.get("inner_mqtt_subprefix", "")}{properties.get("inner_mqtt_client_id", "")}/get/"
         self._mqtt_data_topics = config.data_topics
         self._mqtt_settings_topics = config.settings_topics
         self._session = None  # Singleton aiohttp session
@@ -315,32 +315,32 @@ class WelrokDevice:
     def parse_temperature_response(self, data):
         current_temp = {}
         for code, value in config.TEMP_CODES.items():
-            if f't.{code}' in data:
-                v = str(round(int(data[f't.{code}']) / 16, 2)) if code == 1 else str(round(int(data[f't.{code}']) / 16))
+            if f"t.{code}" in data:
+                v = str(round(int(data[f"t.{code}"]) / 16, 2)) if code == 1 else str(round(int(data[f"t.{code}"]) / 16))
                 current_temp.update({
                     value: v
                 })
         for code in range(3,7):
             sensor = 1 if code in (3,4) else 2
-            if f'f.{code}' in data and data[f'f.{code}'] == '1':
+            if f"f.{code}" in data and data[f"f.{code}"] == "1":
                 current_temp.update({
-                    config.TEMP_CODES[sensor]: 'КЗ или обрыв цепи'
+                    config.TEMP_CODES[sensor]: "КЗ или обрыв цепи"
                 })
         return current_temp
     
     def parse_response(self, raw_response, param):
-        for par in raw_response['par']:
+        for par in raw_response["par"]:
             if par[0] == param:
                 return par[2]
         return None
 
     def parse_device_params_state(self, data):
         state = {}
-        logger.debug('Parse device params state data: %s', data)
+        logger.debug("Parse device params state data: %s", data)
         try:
-            for par in data['par']:
+            for par in data["par"]:
                 if par[0] in config.PARAMS_CODES:
-                    if config.PARAMS_CODES[par[0]] == 'setTemp':
+                    if config.PARAMS_CODES[par[0]] == "setTemp":
                         state.update({
                             config.PARAMS_CODES[par[0]]: config.PARAMS_CHOISE[config.PARAMS_CODES[par[0]]](par[2]) / 10
                         })
@@ -351,7 +351,7 @@ class WelrokDevice:
             logger.debug("""Parse device params state "STATE": %s""", state)
             return state
         except Exception as e:
-            logger.debug('Error: %s.\n%s', e, traceback.format_exc())
+            logger.debug("Error: %s.\n%s", e, traceback.format_exc())
             return None
 
     async def get_device_state(self, cmd, retries: int = 2, retry_delay: float = 0.5):
@@ -364,7 +364,7 @@ class WelrokDevice:
         Returns parsed JSON on success or None on failures/timeouts.
         """
         attempt = 0
-        post_data = json.dumps({'cmd': cmd})
+        post_data = json.dumps({"cmd": cmd})
         while attempt < retries:
             attempt += 1
             try:
@@ -386,9 +386,9 @@ class WelrokDevice:
                 logger.error("Request timeout after %s seconds (device %s, attempt %s/%s)", HTTP_REREQUEST_TIMEOUT, self._id, attempt, retries)
             except (aiohttp.ClientConnectorError, aiohttp.ServerDisconnectedError, 
                     aiohttp.ClientOSError, aiohttp.ClientConnectionError) as e:
-                logger.debug('Network error for %s (attempt %s/%s): %s', self._id, attempt, retries, str(e))
+                logger.debug("Network error for %s (attempt %s/%s): %s", self._id, attempt, retries, str(e))
             except Exception as e:
-                logger.debug('Unexpected error during request to %s (attempt %s/%s): %s.\n%s', self._id, attempt, retries, e, traceback.format_exc())
+                logger.debug("Unexpected error during request to %s (attempt %s/%s): %s.\n%s", self._id, attempt, retries, e, traceback.format_exc())
 
             # If we still have attempts left, sleep with slight backoff
             if attempt < retries:
@@ -398,8 +398,8 @@ class WelrokDevice:
 
     async def set_current_temp(self, current_temp):
         for key, value in current_temp.items():
-            if 'open' not in value:
-                value = f'{value} \u00B0C'
+            if "open" not in value:
+                value = f"{value} \u00B0C"
             logger.debug("Welrok device %s current_temp item key = %s, value = %s", self._id, key, value)
             self._wb_mqtt_device.set_readonly(key, value)
 
@@ -442,8 +442,8 @@ class WelrokDevice:
                 
                 while True:  # Main polling loop
                     if self._url:
-                        # For periodic polling keep retries low so the loop doesn't block too long
-                        params_response = await self.get_device_state(config.CMD_CODES['params'], retries=HTTP_PERIODIC_RETRIES)
+                        # For periodic polling keep retries low so the loop doesn"t block too long
+                        params_response = await self.get_device_state(config.CMD_CODES["params"], retries=HTTP_PERIODIC_RETRIES)
                         if params_response is not None:
                             # success -> reset failures counter
                             self._params_failures = 0
@@ -462,16 +462,16 @@ class WelrokDevice:
                         if params_response:
                             device_controls_state = self.parse_device_params_state(params_response) or {}
                             control_states = {
-                                "Power": int(device_controls_state.get('powerOff', 0)),
-                                "Bright": int(device_controls_state.get('bright', 0) * 10),
-                                "Set temperature": int(device_controls_state.get('setTemp', 0)),
-                                "Set temperature value": int(device_controls_state.get('setTemp', 0))
+                                "Power": int(device_controls_state.get("powerOff", 0)),
+                                "Bright": int(device_controls_state.get("bright", 0) * 10),
+                                "Set temperature": int(device_controls_state.get("setTemp", 0)),
+                                "Set temperature value": int(device_controls_state.get("setTemp", 0))
                             }
                             if self._wb_mqtt_device:
-                                self._wb_mqtt_device.set_readonly('Current mode', config.MODE_NAMES_TRANSLATE.get(device_controls_state.get('mode', ''), ''))
+                                self._wb_mqtt_device.set_readonly("Current mode", config.MODE_NAMES_TRANSLATE.get(device_controls_state.get("mode", ""), ""))
                                 await self.set_current_control_state(control_states)
 
-                        telemetry = await self.get_device_state(config.CMD_CODES['telemetry'], retries=HTTP_PERIODIC_RETRIES)
+                        telemetry = await self.get_device_state(config.CMD_CODES["telemetry"], retries=HTTP_PERIODIC_RETRIES)
                         if telemetry is not None:
                             # success -> reset telemetry failures counter
                             self._telemetry_failures = 0
@@ -488,7 +488,7 @@ class WelrokDevice:
                             elif self._telemetry_failures < HTTP_FAILURE_THRESHOLD:
                                 logger.debug("Device %s transient telemetry error (failed %s/%s)", self._id, self._telemetry_failures, HTTP_FAILURE_THRESHOLD)
                         if telemetry:
-                            self._wb_mqtt_device.set_readonly('Load', self.get_load(telemetry))
+                            self._wb_mqtt_device.set_readonly("Load", self.get_load(telemetry))
                             await self.set_current_temp(self.parse_temperature_response(telemetry))
                     await asyncio.sleep(30)
             except asyncio.CancelledError:
@@ -518,9 +518,9 @@ class WelrokDevice:
         await self._close_session()
 
     def get_load(self, telemetry):
-        load = 'off'
-        if 'f.0' in telemetry:
-            load = config.PARAMS_CHOISE['load'](telemetry['f.0'])
+        load = "off"
+        if "f.0" in telemetry:
+            load = config.PARAMS_CHOISE["load"](telemetry["f.0"])
         return load
 
     def mqtt_data_callback(self, _, __, msg):
@@ -529,19 +529,19 @@ class WelrokDevice:
             return
         
         try:
-            topic_name = [config.INNER_TOPICS.get(i) for i in msg.topic.split('/') if config.INNER_TOPICS.get(i)]
+            topic_name = [config.INNER_TOPICS.get(i) for i in msg.topic.split("/") if config.INNER_TOPICS.get(i)]
             if len(topic_name) > 0:
-                msg = msg.payload.decode('utf-8')
-                if topic_name[0] == 'Power':
-                    msg = '0' if msg == '1' else '1'
-                elif topic_name[0] == 'Load':
-                    msg = 'on' if msg == '1' else 'off'
-                elif 'temperature' in topic_name[0]:
-                    if 'open' not in msg and 'Set ' not in topic_name[0]:
-                        if topic_name[0] != 'Floor temperature':
+                msg = msg.payload.decode("utf-8")
+                if topic_name[0] == "Power":
+                    msg = "0" if msg == "1" else "1"
+                elif topic_name[0] == "Load":
+                    msg = "on" if msg == "1" else "off"
+                elif "temperature" in topic_name[0]:
+                    if "open" not in msg and "Set " not in topic_name[0]:
+                        if topic_name[0] != "Floor temperature":
                             msg = str(round(float(msg)))
-                        msg = f'{msg} \u00B0C'
-                elif topic_name[0] == 'Current mode':
+                        msg = f"{msg} \u00B0C"
+                elif topic_name[0] == "Current mode":
                     msg = config.MODE_NAMES_TRANSLATE[msg]
                 self._wb_mqtt_device.update(topic_name[0], msg)
         except Exception:
@@ -568,7 +568,7 @@ class WelrokDevice:
             except asyncio.TimeoutError:
                 logger.warning("MQTT publish timeout for device %s", self._id)
         else:
-            command = {'sn': self._sn, 'par':[[125,7,str(power)]]}
+            command = {"sn": self._sn, "par":[[125,7,str(power)]]}
             logger.debug("Welrok device %s send_command_http = %s", self._id, command)
             await self.send_command_http(command)
 
@@ -581,7 +581,7 @@ class WelrokDevice:
                         timeout=MQTT_PUBLISH_TIMEOUT
                     )
                     await asyncio.wait_for(
-                        asyncio.to_thread(self._mqtt.publish, self._mqtt_pub_base_topic + config.PARAMS_CODES[2], str(config.MODE_CODES_REVERSE['Manual'])),
+                        asyncio.to_thread(self._mqtt.publish, self._mqtt_pub_base_topic + config.PARAMS_CODES[2], str(config.MODE_CODES_REVERSE["Manual"])),
                         timeout=MQTT_PUBLISH_TIMEOUT
                     )
                 except asyncio.TimeoutError:
@@ -589,8 +589,8 @@ class WelrokDevice:
             else:
                 logger.debug("Welrok device %s send_command_http send_temp = %s", self._id, temp)
                 await self.send_command_http(
-                    {'sn': self._sn, 'par':[
-                            [2,2,str(config.MODE_CODES_REVERSE['Manual'])],
+                    {"sn": self._sn, "par":[
+                            [2,2,str(config.MODE_CODES_REVERSE["Manual"])],
                             [31,3,str(temp * 10)]
                         ]
                     }
@@ -598,7 +598,7 @@ class WelrokDevice:
 
     async def set_mode(self, new_mode: str):
         try:
-            mode_list = [config.MODE_CODES_REVERSE.get(i) for i in new_mode.split('/') if config.MODE_CODES_REVERSE.get(i) is not None]
+            mode_list = [config.MODE_CODES_REVERSE.get(i) for i in new_mode.split("/") if config.MODE_CODES_REVERSE.get(i) is not None]
             if not mode_list:
                 logger.debug("No mode mapping for %s", new_mode)
                 return
@@ -612,7 +612,7 @@ class WelrokDevice:
                 except asyncio.TimeoutError:
                     logger.warning("MQTT publish timeout for device %s", self._id)
             else:
-                await self.send_command_http({'sn': self._sn, 'par': [[2, 2, str(mode)]]})
+                await self.send_command_http({"sn": self._sn, "par": [[2, 2, str(mode)]]})
         except Exception:
             logger.exception("Error in set_mode for device %s", self._id)
 
@@ -627,7 +627,7 @@ class WelrokDevice:
                 except asyncio.TimeoutError:
                     logger.warning("MQTT publish timeout for device %s", self._id)
             else:
-                await self.send_command_http({'sn': self._sn, 'par':[[23,2,str(bright)]]})
+                await self.send_command_http({"sn": self._sn, "par":[[23,2,str(bright)]]})
 
     def unsubscribe_all(self):
         if not hasattr(self, "_subscribed_topics"):
@@ -711,7 +711,7 @@ class WelrokClient:
             initializing.add(device_id)
             try:
                 entry = active_devices.get(device_id)
-                if entry and not entry['task'].done():
+                if entry and not entry["task"].done():
                     return
 
                 welrok_device = WelrokDevice(device_config)
@@ -730,9 +730,9 @@ class WelrokClient:
                     mqtt_device = MQTTDevice(mqtt_client, default_state)
 
                     prev = active_devices.pop(device_id, None)
-                    if prev and prev.get('mqtt'):
+                    if prev and prev.get("mqtt"):
                         try:
-                            prev['mqtt'].remove()
+                            prev["mqtt"].remove()
                         except Exception:
                             logger.exception("Error removing previous mqtt device for %s", device_id)
 
@@ -741,38 +741,38 @@ class WelrokClient:
                     welrok_device.set_mqtt_device(mqtt_device)
                     mqtt_device.publicate()
                     task = asyncio.create_task(welrok_device.run())
-                    active_devices[device_id] = {'task': task, 'welrok': welrok_device, 'mqtt': mqtt_device}
+                    active_devices[device_id] = {"task": task, "welrok": welrok_device, "mqtt": mqtt_device}
 
                     def _done_callback(t, dev_id=device_id):
                         logger.info("Device task %s finished", dev_id)
                         entry2 = active_devices.pop(dev_id, None)
-                        if entry2 and entry2.get('mqtt'):
+                        if entry2 and entry2.get("mqtt"):
                             try:
-                                entry2['mqtt'].remove()
+                                entry2["mqtt"].remove()
                             except Exception:
                                 logger.exception("Error removing mqtt device %s", dev_id)
 
                     task.add_done_callback(_done_callback)
                     return
 
-                params_states = await welrok_device.get_device_state(config.CMD_CODES['params'])
+                params_states = await welrok_device.get_device_state(config.CMD_CODES["params"])
                 if params_states is None:
                     logger.error("Device %s params unavailable, skipping device initialization", welrok_device.id)
                     return
 
                 device_controls_state = welrok_device.parse_device_params_state(params_states) or {}
-                telemetry = await welrok_device.get_device_state(config.CMD_CODES['telemetry']) or {}
+                telemetry = await welrok_device.get_device_state(config.CMD_CODES["telemetry"]) or {}
                 device_controls_state.update({
-                    'read_only_temp': welrok_device.parse_temperature_response(telemetry),
-                    'load': welrok_device.get_load(telemetry)
+                    "read_only_temp": welrok_device.parse_temperature_response(telemetry),
+                    "load": welrok_device.get_load(telemetry)
                 })
 
                 mqtt_device = MQTTDevice(mqtt_client, device_controls_state)
 
                 prev = active_devices.pop(device_id, None)
-                if prev and prev.get('mqtt'):
+                if prev and prev.get("mqtt"):
                     try:
-                        prev['mqtt'].remove()
+                        prev["mqtt"].remove()
                     except Exception:
                         logger.exception("Error removing previous mqtt device for %s", device_id)
 
@@ -781,21 +781,21 @@ class WelrokClient:
                 welrok_device.set_mqtt_device(mqtt_device)
                 mqtt_device.publicate()
                 task = asyncio.create_task(welrok_device.run())
-                active_devices[device_id] = {'task': task, 'welrok': welrok_device, 'mqtt': mqtt_device}
+                active_devices[device_id] = {"task": task, "welrok": welrok_device, "mqtt": mqtt_device}
 
                 def _done_callback(t, dev_id=device_id):
                     logger.info("Device task %s finished", dev_id)
                     entry2 = active_devices.pop(dev_id, None)
-                    if entry2 and entry2.get('mqtt'):
+                    if entry2 and entry2.get("mqtt"):
                         try:
-                            entry2['mqtt'].remove()
+                            entry2["mqtt"].remove()
                         except Exception:
                             logger.exception("Error removing mqtt device %s", dev_id)
 
                 task.add_done_callback(_done_callback)
 
             except Exception:
-                logger.exception("Failed to initialize device %s — skipping", device_config.get('device_title'))
+                logger.exception("Failed to initialize device %s — skipping", device_config.get("device_title"))
             finally:
                 initializing.discard(device_id)
 
@@ -812,7 +812,7 @@ class WelrokClient:
                             continue
                         configured_ids.add(device_id)
                         entry = active_devices.get(device_id)
-                        if not entry or entry['task'].done():
+                        if not entry or entry["task"].done():
                             asyncio.create_task(init_device(device_config))
 
                     for dev_id in list(active_devices.keys()):
@@ -821,12 +821,12 @@ class WelrokClient:
                             if entry:
                                 logger.info("Device %s removed from config — cancelling task and cleaning up", dev_id)
                                 try:
-                                    entry['task'].cancel()
+                                    entry["task"].cancel()
                                 except Exception:
                                     logger.exception("Error cancelling device task %s", dev_id)
                                 try:
-                                    if entry.get('mqtt'):
-                                        entry['mqtt'].remove()
+                                    if entry.get("mqtt"):
+                                        entry["mqtt"].remove()
                                 except Exception:
                                     logger.exception("Error removing mqtt device %s", dev_id)
 
@@ -868,32 +868,32 @@ class WelrokClient:
                 pass
             for dev_id, entry in list(active_devices.items()):
                 try:
-                    entry['task'].cancel()
+                    entry["task"].cancel()
                 except Exception:
                     logger.exception("Error cancelling device %s", dev_id)
                 try:
-                    if entry.get('mqtt'):
-                        entry['mqtt'].remove()
+                    if entry.get("mqtt"):
+                        entry["mqtt"].remove()
                 except Exception:
                     logger.exception("Error removing mqtt device %s", dev_id)
             return 0 if self.mqtt_client_running else 1
         except Exception as e:
-            logger.debug(f'Error: {e}.\n{traceback.format_exc()}')
+            logger.debug(f"Error: {e}.\n{traceback.format_exc()}")
         finally:
             try:
-                if 'monitor_task' in locals():
+                if "monitor_task" in locals():
                     monitor_task.cancel()
             except Exception:
                 pass
 
             for dev_id, entry in list(active_devices.items()):
                 try:
-                    entry['task'].cancel()
+                    entry["task"].cancel()
                 except Exception:
                     logger.exception("Error cancelling device %s", dev_id)
-                if entry.get('mqtt'):
+                if entry.get("mqtt"):
                     try:
-                        entry['mqtt'].remove()
+                        entry["mqtt"].remove()
                     except Exception:
                         logger.exception("Error removing mqtt device %s", dev_id)
 
@@ -918,7 +918,7 @@ def read_and_validate_config(config_filepath: str, schema_filepath: str) -> dict
 
             id_list = [device["device_id"] for device in config["devices"]]
             if len(id_list) != len(set(id_list)):
-                raise ValueError("Device ID's must be unique")
+                raise ValueError("Device ID must be unique")
 
             return config
         except (

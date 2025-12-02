@@ -136,9 +136,9 @@ class Device:
 
     def _publish(self, topic: str, value: str) -> None:
         if value is None:
-            logging.debug('Clear "%s"', topic)
+            logging.debug("Clear %s", topic)
         else:
-            logging.debug('Publish "%s" "%s"', topic, value)
+            logging.debug("Publish %s %s", topic, value)
         payload = "" if value is None else value
         try:
             self._mqtt_client.publish(topic, payload, retain=True)
