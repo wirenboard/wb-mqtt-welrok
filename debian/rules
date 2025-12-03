@@ -103,7 +103,7 @@ override_dh_genchanges:
 		[ -f "$$f" ] || continue; \
 		# Replace various possible anonymized forms (with or without angle brackets)
 		if grep -Iq "nobody@nowhere" "$$f"; then \
-			# Use an extended regex to replace the whole Changed-By: line
-			sed -E -i "s/^Changed-By:[[:space:]]*.*nobody@nowhere.*$$/Changed-By: $$MAINT/" "$$f" || true; \
+			# Use an extended case-insensitive regex to replace the whole Changed-By: line
+			sed -E -i "s|^Changed-By:[[:space:]]*.*(nobody|nowhere|no-?reply).*$$|Changed-By: $$MAINT|Ig" "$$f" || true; \
 		fi; \
 	done || true
