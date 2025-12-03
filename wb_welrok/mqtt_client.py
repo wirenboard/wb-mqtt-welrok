@@ -52,19 +52,12 @@ class MQTTClient(paho_socket.Client):
                 logging.getLogger(__name__).info(
                     f"Attempting MQTT connection to {self._broker_url.hostname}:{self._broker_url.port} (attempt {attempt + 1})"
                 )
-                # Test socket connectivity
-                try:
-                    test_sock = socket.create_connection(
-                        (self._broker_url.hostname, self._broker_url.port), timeout=5
-                    )
-                    test_sock.close()
-                    logging.getLogger(__name__).debug("Socket connectivity test passed")
-                except Exception as sock_e:
-                    logging.getLogger(__name__).warning(f"Socket connectivity test failed: {sock_e}")
                 if scheme == "unix":
                     self.sock_connect(self._broker_url.path)
+                    logging.getLogger(__name__).info("MQTT connected via UNIX socket")
                 elif scheme in ["mqtt-tcp", "tcp", "ws"]:
                     self.connect(self._broker_url.hostname, self._broker_url.port, keepalive=MQTT_KEEPALIVE)
+                    logging.getLogger(__name__).info("MQTT connected via %s", scheme.upper())
                 else:
                     raise Exception("Unkown mqtt url scheme: " + scheme)
                 logging.getLogger(__name__).info("MQTT connection successful")
