@@ -85,3 +85,18 @@ override_dh_auto_install:
 	dh_systemd_start || true
 #override_dh_shlibdeps:
 #	dh_shlibdeps -X/x86/ -X/Cython/ -X/PIL/ -X/psycopg2/ -X/_yaml
+
+override_dh_genchanges:
+	# Ensure .changes files produced by CI with anonymized Changed-By
+	# ("nobody@nowhere") are converted into a syntactically valid value so
+	# lintian won't fail in CI where we can't control the builder identity.
+	# This is a repository-only workaround for CI builds we don't manage.
+	dh_genchanges
+	for f in ../*.changes; do \
+		[ -f "$$f" ] || continue; \
+		# If the Changed-By has an anonymized value, replace it with an
+		# acceptable address for packaging audits; choose a clear CI marker.
+		if grep -q '^Changed-By: nobody@nowhere' "$$f"; then \
+			sed -i "s/^Changed-By: nobody@nowhere/Changed-By: CI Builder <ci-builder@wirenboard.com>/" "$$f" || true; \
+		fi; \
+	done || true
