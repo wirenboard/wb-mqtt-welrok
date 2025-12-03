@@ -88,41 +88,26 @@ override_dh_auto_install:
 
 override_dh_genchanges:
 	# Ensure generated .changes use a valid Changed-By value in CI builds
-	# where the builder identity might be anonymized. Prefer setting the
-	# DEBFULLNAME/DEBEMAIL environment a) to make dpkg-genchanges write a
-	# correct Changed-By and b) to avoid fragile post-processing.
-	# Extract Maintainer from debian/control and export DEB env vars.
-	MAINT_LINE="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control || true)"
-	if [ -n "$$MAINT_LINE" ]; then
-		# Parse 'Name <email>' gracefully: capture email if present
-		MAINT_EMAIL="$$(echo "$$MAINT_LINE" | sed -n 's/.*<\([^>]*\)>.*/\1/p' || true)"
-		MAINT_NAME="$$(echo "$$MAINT_LINE" | sed -n 's/\(.*\) <.*>/\1/p' || true)"
-		if [ -z "$$MAINT_NAME" ]; then
-			# if no angle brackets found, use the whole line as name
-			MAINT_NAME="$$MAINT_LINE"
-		fi
-		if [ -n "$$MAINT_EMAIL" ]; then
-			export DEBEMAIL="$$MAINT_EMAIL"
-		fi
-		export DEBFULLNAME="$$MAINT_NAME"
-	fi
-
-	# Generate changes using the DEB env vars (if set)
-	dh_genchanges
-	# Resolve a sensible replacement value: prefer the debian/control Maintainer
-	# line; fall back to a clear CI marker if not found.
-	MAINT="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control || true)"
-	if [ -z "$$MAINT" ]; then
-		MAINT="CI Builder <ci-builder@wirenboard.com>"
-	fi
-	# Look for .changes files in a few likely places and normalize Changed-By
+	# where the builder identity might be anonymized.
+	# Extract Maintainer from debian/control, set DEB env vars, and run
+	# dh_genchanges all in one shell so exports take effect.
+	@set -e; \
+	MAINT_LINE="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control)"; \
+	if [ -n "$$MAINT_LINE" ]; then \
+		MAINT_EMAIL="$$(echo "$$MAINT_LINE" | sed -n 's/.*<\([^>]*\)>.*/\1/p')"; \
+		MAINT_NAME="$$(echo "$$MAINT_LINE" | sed -n 's/\(.*\) <.*>/\1/p')"; \
+		[ -n "$$MAINT_NAME" ] || MAINT_NAME="$$MAINT_LINE"; \
+		[ -z "$$MAINT_EMAIL" ] || export DEBEMAIL="$$MAINT_EMAIL"; \
+		export DEBFULLNAME="$$MAINT_NAME"; \
+	fi; \
+	dh_genchanges; \
+	MAINT="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control)"; \
+	[ -n "$$MAINT" ] || MAINT="CI Builder <ci-builder@wirenboard.com>"; \
 	for f in ../*.changes ../../*.changes *.changes; do \
 		[ -f "$$f" ] || continue; \
-		# Replace various possible anonymized forms (with or without angle brackets)
-		# Detect broader range of anonymized placeholders (case-insensitive)
 		if grep -Eiq "(nobody|nowhere|no-?reply)" "$$f"; then \
-			echo "fixing Changed-By in $$f"; \
-			# Use an extended case-insensitive regex to replace the whole Changed-By: line
-			sed -E -i "s|^Changed-By:[[:space:]]*.*(nobody|nowhere|no-?reply).*$$|Changed-By: $$MAINT|Ig" "$$f" || true; \
+			echo "Fixing Changed-By in $$f"; \
+			sed -E -i "s|^Changed-By:.*$$|Changed-By: $$MAINT|g" "$$f"; \
 		fi; \
-	done || true
+	done; \
+	echo "override_dh_genchanges done"
