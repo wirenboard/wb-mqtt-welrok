@@ -1010,8 +1010,10 @@ class WelrokClient:
 
             await monitor_task
 
-        except (ConnectionError, ConnectionRefusedError) as e:
-            logger.error("MQTT error connection to broker %s: %s", DEFAULT_BROKER_URL, e)
+        except (ConnectionError, ConnectionRefusedError, OSError) as e:
+            logger.error(
+                "MQTT error connection to broker %s: %s", self.mqtt_server_uri or DEFAULT_BROKER_URL, e
+            )
             return 1
         except asyncio.CancelledError:
             logger.debug("Run welrok client task cancelled")

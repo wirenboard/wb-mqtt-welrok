@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/opt/venvs/wb-welrok/bin/python3
 # pylint: disable=invalid-name
 
 import sys
