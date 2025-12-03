@@ -92,11 +92,18 @@ override_dh_genchanges:
 	# lintian won't fail in CI where we can't control the builder identity.
 	# This is a repository-only workaround for CI builds we don't manage.
 	dh_genchanges
-	for f in ../*.changes; do \
+	# Resolve a sensible replacement value: prefer the debian/control Maintainer
+	# line; fall back to a clear CI marker if not found.
+	MAINT="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control || true)"
+	if [ -z "$$MAINT" ]; then
+		MAINT="CI Builder <ci-builder@wirenboard.com>"
+	fi
+	# Look for .changes files in a few likely places and normalize Changed-By
+	for f in ../*.changes ../../*.changes *.changes; do \
 		[ -f "$$f" ] || continue; \
-		# If the Changed-By has an anonymized value, replace it with an
-		# acceptable address for packaging audits; choose a clear CI marker.
-		if grep -q '^Changed-By: nobody@nowhere' "$$f"; then \
-			sed -i "s/^Changed-By: nobody@nowhere/Changed-By: CI Builder <ci-builder@wirenboard.com>/" "$$f" || true; \
+		# Replace various possible anonymized forms (with or without angle brackets)
+		if grep -Iq "nobody@nowhere" "$$f"; then \
+			# Use an extended regex to replace the whole Changed-By: line
+			sed -E -i "s/^Changed-By:[[:space:]]*.*nobody@nowhere.*$$/Changed-By: $$MAINT/" "$$f" || true; \
 		fi; \
 	done || true
