@@ -14,6 +14,8 @@ MQTT_KEEPALIVE = 30  # seconds
 MQTT_RECONNECT_MIN_DELAY = 1  # seconds
 MQTT_RECONNECT_MAX_DELAY = 120  # seconds
 
+RETRY_DELAY = 5  # seconds
+
 
 class MQTTClient(paho_socket.Client):
     def __init__(self, client_id_prefix: str, broker_url: str = DEFAULT_BROKER_URL, is_threaded: bool = True):
@@ -43,7 +45,7 @@ class MQTTClient(paho_socket.Client):
         if self._is_threaded:
             self.loop_start()
         max_retries = 5
-        retry_delay = 2
+        retry_delay = RETRY_DELAY
         for attempt in range(max_retries):
             try:
                 logging.getLogger(__name__).info(
