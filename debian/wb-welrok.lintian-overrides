@@ -31,6 +31,10 @@ bogus-mail-host
 # which lintian flags in the changelog. Accept it for CI-built artifacts.
 bogus-mail-host-in-debian-changelog
 
+# Also suppress bogus-mail-host when it appears for the .changes file itself
+# (lintian sometimes reports this under the 'changes' context).
+changes:bogus-mail-host
+
 # Some builds generate an init script reference which isn't included in the
 # package; this is intentional for the omnibus venv package and will be
 # suppressed here.

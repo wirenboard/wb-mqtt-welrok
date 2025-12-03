@@ -11,3 +11,6 @@ bogus-mail-host-in-debian-changelog
 
 # If any other expected-but-noisy warnings are still present, consider
 # keeping more overrides in debian/wb-welrok.lintian-overrides too.
+
+# Also allow bogus-mail-host on changes files (CI-built .changes contain anonymized Changed-By)
+changes:bogus-mail-host
