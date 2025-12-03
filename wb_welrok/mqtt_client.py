@@ -7,8 +7,8 @@ from urllib.parse import urlparse
 
 import paho_socket
 
-# DEFAULT_BROKER_URL = "unix:///var/run/mosquitto/mosquitto.sock"
-DEFAULT_BROKER_URL = "tcp://127.0.0.1:1883"
+DEFAULT_BROKER_URL = "unix:///var/run/mosquitto/mosquitto.sock"
+# DEFAULT_BROKER_URL = "tcp://127.0.0.1:1883"
 
 MQTT_KEEPALIVE = 30  # seconds
 MQTT_RECONNECT_MIN_DELAY = 1  # seconds
