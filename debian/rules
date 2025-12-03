@@ -34,10 +34,12 @@ build-arch:
 	$(SNAKE) setup.py sdist --formats tar
 	mkdir -p $(SDIST_DIR)
 	tar -x -C $(SDIST_DIR) --strip-components=1 --exclude '*.egg-info' -f dist/*.tar
-	dh $@ $(DH_VENV_ARGS) --sourcedir .
+	# Use the extracted sdist as the source directory to avoid running
+	# python-distutils handlers against the debian/ tree in the repo root.
+	dh $@ $(DH_VENV_ARGS) --sourcedir $(SDIST_DIR)
 
 %:
-	dh $@ --with python-virtualenv --sourcedir . --with systemd
+	dh $@ --with python-virtualenv --with systemd
 
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
@@ -59,6 +61,16 @@ override_dh_virtualenv:
 override_dh_auto_clean:
 	# Prevent dh_auto_clean from invoking python-distutils/pyversions which
 	# isn't available in some build environments; make this step a no-op.
+	true
+
+override_dh_auto_configure:
+	# don't run python-distutils based configure; dh_virtualenv will handle
+	# package installation inside the venv
+	true
+
+override_dh_auto_build:
+	# Avoid calling pyversions via dh_auto_build (pyversions may be missing
+	# in minimal build environments). dh_virtualenv will build the venv.
 	true
 
 override_dh_strip:
