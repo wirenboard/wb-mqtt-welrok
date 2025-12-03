@@ -14,7 +14,7 @@ MQTT_KEEPALIVE = 30  # seconds
 MQTT_RECONNECT_MIN_DELAY = 1  # seconds
 MQTT_RECONNECT_MAX_DELAY = 120  # seconds
 
-RETRY_DELAY = 5  # seconds
+RETRY_DELAY = 2  # seconds
 MAX_RETRIES = 5
 
 
