@@ -1,9 +1,7 @@
 import asyncio
 import logging
 
-from wb_welrok import wbmqtt
-
-from wb_welrok import config
+from wb_welrok import config, wbmqtt
 from wb_welrok.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
 logger = logging.getLogger(__name__)
