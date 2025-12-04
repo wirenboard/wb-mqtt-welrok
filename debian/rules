@@ -28,6 +28,7 @@ SDIST_DIR=debian/$(PACKAGE)-$(VERSION)
 clean:
 	test ! -d dist || rm -rf dist
 	test ! -d $(SDIST_DIR) || rm -rf $(SDIST_DIR)/*
+	rm -rf .eggs/ || true
 	dh $@ $(DH_VENV_ARGS)
 
 build-arch:
