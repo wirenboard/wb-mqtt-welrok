@@ -17,15 +17,17 @@ def get_version():
         with open("debian/changelog", "r", encoding="utf-8") as f:
             return f.readline().split()[1][1:-1]
     except OSError:
-        return "0.0.0"
+        pass
 
-    # try:
-    #     with open("wb_welrok/__init__.py", "r", encoding="utf-8") as f:
-    #         m = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", f.read(), re.M)
-    #         if m:
-    #             return m.group(1)
-    # except OSError:
-    #     pass
+    try:
+        with open("wb_welrok/__init__.py", "r", encoding="utf-8") as f:
+            m = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", f.read(), re.M)
+            if m:
+                return m.group(1)
+    except OSError:
+        pass
+
+    return "0.0.0"
 
 
 setup(
