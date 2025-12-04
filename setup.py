@@ -6,10 +6,26 @@ from setuptools import setup
 
 
 def get_version():
-    """Return version string found in the package or fallback to debian/changelog"""
+    """Return version string found in the package or fallback to debian/changelog.
 
-    with open("debian/changelog", "r", encoding="utf-8") as f:
-        return f.readline().split()[1][1:-1]
+    We prefer to read __version__ from the package so that isolated PEP 517
+    builds (which create sdist without debian/) can determine a stable
+    version. If the package file is missing or can't be parsed, fall back to
+    parsing debian/changelog (used in some packaging workflows).
+    """
+    try:
+        with open("debian/changelog", "r", encoding="utf-8") as f:
+            return f.readline().split()[1][1:-1]
+    except OSError:
+        return "0.0.0"
+
+    # try:
+    #     with open("wb_welrok/__init__.py", "r", encoding="utf-8") as f:
+    #         m = re.search(r"^__version__\s*=\s*['\"]([^'\"]+)['\"]", f.read(), re.M)
+    #         if m:
+    #             return m.group(1)
+    # except OSError:
+    #     pass
 
 
 setup(
