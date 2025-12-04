@@ -42,7 +42,7 @@ build-arch:
 	dh $@ --with python-virtualenv --with systemd
 
 override_dh_virtualenv:
-	dh_virtualenv $(DH_VENV_ARGS) --verbose --pip-args="-v"
+	dh_virtualenv $(DH_VENV_ARGS) --verbose
 
 	# Clean up artifacts that are noisy for lintian and unnecessary in the
 	# packed venv (wheel caches, __pycache__ directories, Windows executables,
