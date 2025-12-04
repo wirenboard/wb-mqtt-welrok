@@ -3,7 +3,7 @@ import logging
 import signal
 import traceback
 
-# from wb_welrok import config
+from wb_welrok import config
 from wb_welrok.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 from wb_welrok.wb_mqtt_device import MQTTDevice
 from wb_welrok.wb_welrok_device import WelrokDevice
