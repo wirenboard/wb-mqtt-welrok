@@ -426,7 +426,8 @@ class WelrokDevice:
             return None
 
     async def get_device_state(self, cmd, retries: int = 2, retry_delay: float = 0.5):
-        """Perform POST to device API with retries.
+        """
+        Perform POST to device API with retries
 
         Args:
             cmd: numeric command code to send in the payload
