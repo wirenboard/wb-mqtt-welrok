@@ -14,3 +14,4 @@ Dockerfile
 helper
 */__pycache__/*
 pyproject.toml
+.eggs/*

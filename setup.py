@@ -5,6 +5,8 @@ from setuptools import setup
 setup(
     name="wb-welrok",
     use_scm_version={
+        "version_scheme": "guess-next-dev",
+        "local_scheme": "dirty-tag",
         "fallback_version": "0.0.16",
     },
     setup_requires=["setuptools_scm"],
