@@ -369,8 +369,8 @@ class WelrokDevice:
         if self._session is not None and not self._session.closed:
             try:
                 await self._session.close()
-                # Wait for proper cleanup
-                await asyncio.sleep(0.25)
+                # Wait for proper cleanup - removed to avoid hanging on shutdown
+                # await asyncio.sleep(0.25)
             except Exception:
                 logger.exception("Error closing aiohttp session for device %s", self._id)
 
@@ -1031,6 +1031,8 @@ class WelrokClient:
                         entry["mqtt"].remove()
                 except Exception:
                     logger.exception("Error removing mqtt device %s", dev_id)
+            # Wait for cancelled tasks to finish cleanup
+            await asyncio.gather(*[entry["task"] for entry in active_devices.values() if not entry["task"].done()], return_exceptions=True)
             return 0 if self.mqtt_client_running else 1
         except Exception as e:
             logger.debug(f"Error: {e}.\n{traceback.format_exc()}")
