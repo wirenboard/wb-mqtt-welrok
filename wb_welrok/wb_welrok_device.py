@@ -43,7 +43,6 @@ class WelrokDevice:
         self._mqtt_sub_base_topic = f"""{properties.get("inner_mqtt_subprefix", "")}{properties.get("inner_mqtt_client_id", "")}/get/"""
         self._mqtt_data_topics = config.data_topics
         self._mqtt_settings_topics = config.settings_topics
-        self._session = None  # Singleton aiohttp session
         # Counters for consecutive failures (used to reduce noisy warnings)
         self._params_failures = 0
         self._telemetry_failures = 0
@@ -81,27 +80,15 @@ class WelrokDevice:
         logger.debug("Set WB MQTT device for Welrok %s", self._id)
 
     def _get_session(self):
-        """Get or create singleton aiohttp session with timeout and connection limits"""
-        if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=HTTP_REREQUEST_TIMEOUT)
-            connector = aiohttp.TCPConnector(
-                limit_per_host=2,  # Max 2 simultaneous connections per host
-                force_close=True,  # Force close connections for unstable devices
-                enable_cleanup_closed=True,
-                ssl=False,  # Explicitly disable SSL for HTTP connections
-            )
-            self._session = aiohttp.ClientSession(timeout=timeout, connector=connector, trust_env=True)
-        return self._session
-
-    async def _close_session(self):
-        """Close aiohttp session if exists"""
-        if self._session is not None and not self._session.closed:
-            try:
-                await self._session.close()
-                # Wait for proper cleanup - removed to avoid hanging on shutdown
-                # await asyncio.sleep(0.25)
-            except Exception:
-                logger.exception("Error closing aiohttp session for device %s", self._id)
+        """Create a new aiohttp session with timeout and connection limits"""
+        timeout = aiohttp.ClientTimeout(total=HTTP_REREQUEST_TIMEOUT)
+        connector = aiohttp.TCPConnector(
+            limit_per_host=2,  # Max 2 simultaneous connections per host
+            force_close=True,  # Force close connections for unstable devices
+            enable_cleanup_closed=True,
+            ssl=False,  # Explicitly disable SSL for HTTP connections
+        )
+        return aiohttp.ClientSession(timeout=timeout, connector=connector, trust_env=True)
 
     def parse_temperature_response(self, data):
         current_temp = {}
@@ -171,17 +158,17 @@ class WelrokDevice:
             try:
                 logger.debug("Start get_device_state (attempt %s/%s)", attempt, retries)
                 logger.debug("Get_device_state post_data: %s", post_data)
-                session = self._get_session()
-                async with session.post(self._url, data=post_data) as resp:
-                    status = resp.status
-                    if status == 200:
-                        try:
-                            return await resp.json()
-                        except aiohttp.ContentTypeError:
-                            logger.debug("Response content is not in JSON format from %s", self._id)
-                            return None
-                    logger.error("HTTP error %s for device %s", status, self._id)
-                    return None
+                async with self._get_session() as session:
+                    async with session.post(self._url, data=post_data) as resp:
+                        status = resp.status
+                        if status == 200:
+                            try:
+                                return await resp.json()
+                            except aiohttp.ContentTypeError:
+                                logger.debug("Response content is not in JSON format from %s", self._id)
+                                return None
+                        logger.error("HTTP error %s for device %s", status, self._id)
+                        return None
 
             except asyncio.TimeoutError:
                 logger.error(
@@ -363,7 +350,7 @@ class WelrokDevice:
                 logger.exception("Error while stopping mqtt client for device %s", self._id)
 
         # Close aiohttp session
-        await self._close_session()
+        pass  # Sessions are now properly closed with async with
 
     def get_load(self, telemetry):
         load = "off"
