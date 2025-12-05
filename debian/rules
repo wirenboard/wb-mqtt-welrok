@@ -28,26 +28,87 @@ SDIST_DIR=debian/$(PACKAGE)-$(VERSION)
 clean:
 	test ! -d dist || rm -rf dist
 	test ! -d $(SDIST_DIR) || rm -rf $(SDIST_DIR)/*
+	rm -rf .eggs/ || true
 	dh $@ $(DH_VENV_ARGS)
 
 build-arch:
 	$(SNAKE) setup.py sdist --formats tar
 	mkdir -p $(SDIST_DIR)
 	tar -x -C $(SDIST_DIR) --strip-components=1 --exclude '*.egg-info' -f dist/*.tar
-	dh $@ $(DH_VENV_ARGS) --sourcedir .
+	# Use the extracted sdist as the source directory to avoid running
+	# python-distutils handlers against the debian/ tree in the repo root.
+	dh $@ $(DH_VENV_ARGS) --sourcedir $(SDIST_DIR)
 
 %:
-	dh $@ --with python-virtualenv --sourcedir . --with systemd
+	dh $@ --with python-virtualenv --with systemd
 
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
+
+	# Clean up artifacts that are noisy for lintian and unnecessary in the
+	# packed venv (wheel caches, __pycache__ directories, Windows executables,
+	# redundant easy_install wrappers, compiled python cache files).
+	VENV=debian/$(PACKAGE)/opt/venvs/$(PACKAGE)
+	# remove wheel caches created by pip
+	rm -rf $(VENV)/share/python-wheels || true
+	# remove compiled python caches
+	find $(VENV) -type d -name '__pycache__' -exec rm -rf {} + || true
+	find $(VENV) -type f -name '*.pyc' -exec rm -f {} + || true
+	# remove leftover wheel and pip binaries/metadata we don't want packaged
+	find $(VENV) -type f -iname '*.exe' -exec rm -f {} + || true
+	rm -f $(VENV)/bin/easy_install* || true
+
+
+override_dh_auto_clean:
+	# Prevent dh_auto_clean from invoking python-distutils/pyversions which
+	# isn't available in some build environments; make this step a no-op.
+	true
+
+override_dh_auto_configure:
+	# don't run python-distutils based configure; dh_virtualenv will handle
+	# package installation inside the venv
+	true
+
+override_dh_auto_build:
+	# Avoid calling pyversions via dh_auto_build (pyversions may be missing
+	# in minimal build environments). dh_virtualenv will build the venv.
+	true
 
 override_dh_strip:
 	dh_strip --exclude=cffi --exclude=_imaging
 
 override_dh_auto_install:
+	# Install files then remove any python __pycache__ directories from the
+	# binary package area to avoid lintian's package-installs-python-pycache-dir
 	dh_auto_install
+	find debian/$(shell dh_listpackages) -type d -name '__pycache__' -exec rm -rf {} + || true
 	dh_systemd_enable || true
 	dh_systemd_start || true
 #override_dh_shlibdeps:
 #	dh_shlibdeps -X/x86/ -X/Cython/ -X/PIL/ -X/psycopg2/ -X/_yaml
+
+override_dh_genchanges:
+	# Ensure generated .changes use a valid Changed-By value in CI builds
+	# where the builder identity might be anonymized.
+	# Extract Maintainer from debian/control, set DEB env vars, and run
+	# dh_genchanges all in one shell so exports take effect.
+	@set -e; \
+	MAINT_LINE="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control)"; \
+	if [ -n "$$MAINT_LINE" ]; then \
+		MAINT_EMAIL="$$(echo "$$MAINT_LINE" | sed -n 's/.*<\([^>]*\)>.*/\1/p')"; \
+		MAINT_NAME="$$(echo "$$MAINT_LINE" | sed -n 's/\(.*\) <.*>/\1/p')"; \
+		[ -n "$$MAINT_NAME" ] || MAINT_NAME="$$MAINT_LINE"; \
+		[ -z "$$MAINT_EMAIL" ] || export DEBEMAIL="$$MAINT_EMAIL"; \
+		export DEBFULLNAME="$$MAINT_NAME"; \
+	fi; \
+	dh_genchanges; \
+	MAINT="$$(awk -F': ' '/^Maintainer:/ {print $$2; exit}' debian/control)"; \
+	[ -n "$$MAINT" ] || MAINT="CI Builder <ci-builder@wirenboard.com>"; \
+	for f in ../*.changes ../../*.changes *.changes; do \
+		[ -f "$$f" ] || continue; \
+		if grep -Eiq "(nobody|nowhere|no-?reply)" "$$f"; then \
+			echo "Fixing Changed-By in $$f"; \
+			sed -E -i "s|^Changed-By:.*$$|Changed-By: $$MAINT|g" "$$f"; \
+		fi; \
+	done; \
+	echo "override_dh_genchanges done"

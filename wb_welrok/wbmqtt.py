@@ -110,11 +110,7 @@ class Device:
         return f"{self._base_topic}/controls/{mqtt_control_name}"
 
     def _publish_control_meta(self, mqtt_control_name: str, meta: ControlMeta) -> None:
-        meta_dict = {
-            "type": meta.control_type,
-            "readonly": bool(meta.read_only),
-            "title": {}
-        }
+        meta_dict = {"type": meta.control_type, "readonly": bool(meta.read_only), "title": {}}
         if meta.title is not None:
             meta_dict["title"].update({"ru": meta.title})
         if meta.title_en is not None:
@@ -136,14 +132,15 @@ class Device:
 
     def _publish(self, topic: str, value: str) -> None:
         if value is None:
-            logging.debug('Clear "%s"', topic)
+            logging.debug("Clear %s", topic)
         else:
-            logging.debug('Publish "%s" "%s"', topic, value)
+            logging.debug("Publish %s %s", topic, value)
         payload = "" if value is None else value
         try:
             self._mqtt_client.publish(topic, payload, retain=True)
         except Exception:
             logging.getLogger(__name__).exception("Failed to publish to %s", topic)
+
 
 def retain_hack(mqtt_client) -> None:
     random.seed()
@@ -160,6 +157,7 @@ def retain_hack(mqtt_client) -> None:
     sem.acquire(timeout=10)  # pylint: disable=R1732
     mqtt_client.unsubscribe(retain_hack_topic)
     mqtt_client.message_callback_remove(retain_hack_topic)
+
 
 def remove_topics_by_device_prefix(mqtt_client, device_prefix: str) -> None:
     topics = []

@@ -1,0 +1,13 @@
+# Overrides for CI artifacts that are intentionally anonymized or expected
+# Build systems in CI sometimes set Changed-By to nobody@nowhere — accept it
+bogus-mail-host
+
+# Changelog entries in CI may be 'UNRELEASED' but .changes is for bullseye
+# and we can't control CI distribution, accept the mismatch
+changelog-distribution-does-not-match-changes-file
+
+# The changes file can also have a bogus mail host which should be allowed
+bogus-mail-host-in-debian-changelog
+
+# If any other expected-but-noisy warnings are still present, consider
+# keeping more overrides in debian/wb-welrok.lintian-overrides too.
