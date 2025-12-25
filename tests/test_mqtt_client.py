@@ -1,6 +1,8 @@
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from wb_welrok.mqtt_client import MQTTClient, DEFAULT_BROKER_URL
+
+from wb_welrok.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
 
 
 class TestMQTTClient:

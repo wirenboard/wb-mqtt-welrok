@@ -1,10 +1,12 @@
-import pytest
 import asyncio
-from unittest.mock import Mock, MagicMock, patch, AsyncMock
-from wb_welrok.wb_welrok_device import WelrokDevice
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
+
+from wb_welrok import config
 from wb_welrok.wb_mqtt_device import MQTTDevice
 from wb_welrok.wb_welrok_client import WelrokClient
-from wb_welrok import config
+from wb_welrok.wb_welrok_device import WelrokDevice
 
 
 class TestWelrokDevice:
