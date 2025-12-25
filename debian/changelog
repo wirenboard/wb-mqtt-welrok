@@ -1,3 +1,9 @@
+wb-welrok (0.0.17) RELEASED; urgency=low
+
+  * Add tests and a README for them
+
+ -- Victor Fedorov <victor.fedorov@wirenboard.com>  Thu, 25 Dec 2025 19:39:03 +0300
+
 wb-welrok (0.0.16) RELEASED; urgency=low
 
   * Add http timeouts
