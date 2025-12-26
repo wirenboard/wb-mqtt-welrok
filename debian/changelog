@@ -1,3 +1,9 @@
+wb-welrok (0.0.17) RELEASED; urgency=low
+
+  * fix translation
+
+ -- Andrey Ksenofontov <andrey.ksenofontov@wirenboard.com>  Fri, 26 Dec 2025 12:32:00 +0300
+
 wb-welrok (0.0.16) RELEASED; urgency=low
 
   * Add http timeouts
