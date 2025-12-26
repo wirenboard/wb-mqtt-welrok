@@ -72,7 +72,7 @@ class MQTTDevice:
         self._device.create_control(
             "Set temperature",
             wbmqtt.ControlMeta(
-                title="Установка",
+                title="Уставка",
                 title_en="Set floor temperature",
                 units="deg C",
                 control_type="range",
@@ -106,7 +106,7 @@ class MQTTDevice:
         self._device.create_control(
             "Set temperature value",
             wbmqtt.ControlMeta(
-                title="Установка",
+                title="Уставка",
                 title_en="Set floor temperature",
                 control_type="temperature",
                 order=6,
