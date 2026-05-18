@@ -552,11 +552,11 @@ class WelrokDevice:
                     topic = self._mqtt_pub_base_topic + topic_suffix
                     await self.send_command_mqtt(topic, value)
                     await asyncio.sleep(1)
-            elif http_params is not None:
+            if http_params is not None:
                 command = {"sn": self._sn, "par": http_params}
                 await self.send_command_http(command)
                 await asyncio.sleep(1)
-            else:
+            if mqtt_data is None and http_params is None:
                 logger.error("Invalid command parameters for device %s", self._id)
         except Exception:
             logger.exception("Error sending command for device %s", self._id)

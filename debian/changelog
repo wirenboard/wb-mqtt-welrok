@@ -1,3 +1,9 @@
+wb-welrok (0.1.8) RELEASED; urgency=low
+
+  * Add fallback HTTP send after MQTT send
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 29 May 2026 16:07:13 +0300
+
 wb-welrok (0.1.7) RELEASED; urgency=low
 
   * Add _pending_mode for instant UI mode feedback
