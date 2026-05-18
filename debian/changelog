@@ -1,3 +1,11 @@
+wb-welrok (0.1.7) RELEASED; urgency=low
+
+  * Add _pending_mode for instant UI mode feedback
+  * Guard missing controls in _update_sensor_error_flags
+  * Handle connection errors with graceful MQTT restart
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 18 May 2026 13:12:34 +0300
+
 wb-welrok (0.1.6) RELEASED; urgency=low
 
   * Isort reformat

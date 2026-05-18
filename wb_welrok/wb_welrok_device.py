@@ -226,6 +226,8 @@ class WelrokDevice:
         self._control_type: Optional[int] = None
         self._pending_set_temp: Optional[int] = None
         self._pending_set_temp_expire: float = 0.0
+        self._pending_mode: Optional[str] = None
+        self._pending_mode_expire: float = 0.0
 
         self._params_failures = 0
         self._telemetry_failures = 0
@@ -311,7 +313,8 @@ class WelrokDevice:
             return
         sensor_errors = self._data_parser.parse_sensor_errors(telemetry)
         for control_title, error_text in sensor_errors.items():
-            self._wb_mqtt_device.set_control_error_state(control_title, error_text)
+            if self._wb_mqtt_device.has_control(control_title):
+                self._wb_mqtt_device.set_control_error_state(control_title, error_text)
 
     async def set_current_control_state(self, current_states: dict):
         for key, value in current_states.items():
@@ -387,9 +390,16 @@ class WelrokDevice:
         await self.set_current_temp(self._data_parser.parse_temperature_response(telemetry))
         self._update_sensor_error_flags(telemetry)
         if self._wb_mqtt_device:
+            device_mode = device_controls_state.get("mode")
+            if self._pending_mode is not None:
+                if time.monotonic() > self._pending_mode_expire:
+                    self._pending_mode = None
+                elif device_mode == self._pending_mode:
+                    self._pending_mode = None
+            display_mode = self._pending_mode if self._pending_mode is not None else device_mode
             self._wb_mqtt_device.set_readonly(
                 "Current mode",
-                config.MODE_NAMES_TRANSLATE.get(device_controls_state.get("mode", ""), ""),
+                config.MODE_NAMES_TRANSLATE.get(display_mode or "", ""),
             )
             self._wb_mqtt_device.set_readonly("Load", self.get_load(telemetry))
 
@@ -449,6 +459,14 @@ class WelrokDevice:
                 except asyncio.CancelledError:
                     logger.info("Welrok device %s run task cancelled", self._id)
                     break
+
+                except (aiohttp.ClientConnectorError, OSError) as e:
+                    logger.warning("Device %s connection error, restarting after delay: %s", self._id, e)
+                    try:
+                        self._mqtt.stop()
+                    except Exception:
+                        logger.exception("Error stopping MQTT for device %s", self._id)
+                    await asyncio.sleep(10)
 
                 except Exception:
                     logger.exception("Error in device %s run loop, restarting after delay", self._id)
@@ -581,8 +599,17 @@ class WelrokDevice:
     async def set_mode(self, new_mode: str, topic):
         if "Manual/on" in topic:
             new_mode = "1"
+            pending = "Manual"
         elif "Auto/on" in topic:
             new_mode = "0"
+            pending = "Auto"
+        else:
+            pending = None
+
+        if pending is not None:
+            self._pending_mode = pending
+            self._pending_mode_expire = time.monotonic() + 30.0
+
         mqtt_data, http_params = self._data_parser.format_command(
             config.ParamCode.MODE, new_mode, config.HttpCode.MODE
         )

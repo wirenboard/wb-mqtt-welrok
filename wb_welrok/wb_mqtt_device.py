@@ -162,6 +162,9 @@ class MQTTDevice:
             if control_name != "IP address":
                 self._device.set_control_error(control_name, "r" if error else "")
 
+    def has_control(self, control_name: str) -> bool:
+        return self._device is not None and control_name in self._device.get_controls_list()
+
     def set_control_error_state(self, control_name: str, error_text: str) -> None:
         if self._device:
             self._device.set_control_error(control_name, error_text)
