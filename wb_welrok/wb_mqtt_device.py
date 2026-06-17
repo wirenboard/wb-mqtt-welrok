@@ -165,6 +165,21 @@ class MQTTDevice:
     def has_control(self, control_name: str) -> bool:
         return self._device is not None and control_name in self._device.get_controls_list()
 
+    def ensure_temp_control(self, control_name: str, value: str) -> None:
+        if self.has_control(control_name):
+            return
+        temps_cfg = config.CONTROLS_CONFIG["Readonly"]["Temps"]
+        meta = dict(temps_cfg["meta_template"])
+        meta.update(
+            {
+                "title": config.TOPIC_NAMES_TRANSLATE.get(control_name, control_name),
+                "title_en": control_name,
+                "order": len(self._device.get_controls_list()) + 1,
+            }
+        )
+        self._device.create_control(control_name, wbmqtt.ControlMeta(**meta), value)
+        logger.debug("Dynamically created temp control %s for %s", control_name, self._welrok_device.id)
+
     def set_control_error_state(self, control_name: str, error_text: str) -> None:
         if self._device:
             self._device.set_control_error(control_name, error_text)

@@ -1,3 +1,17 @@
+wb-welrok (0.1.9) RELEASED; urgency=low
+
+  * Batch and debounce commands via _cmd_pending/_command_loop
+  * Split run() into _poll_loop and _command_loop running concurrently
+    with asyncio.gather. Commands are queued into _cmd_pending dict with
+    0.5s debounce and last-write-wins deduplication. After each batch,
+    _poll_event wakes _poll_loop for immediate UI refresh (~1s vs ~10s).
+  * Fix inner MQTT killed on HTTP error — removed mqtt.stop() from
+    connection error handlers in _poll_loop; only kept in run() finally.
+  * Apply sensor error flags on first init, not only from second poll
+  * Guard _control_type update while f.5 (air sensor loss) is active
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 17 Jun 2026 11:02:45 +0300
+
 wb-welrok (0.1.8) RELEASED; urgency=low
 
   * Add fallback HTTP send after MQTT send
