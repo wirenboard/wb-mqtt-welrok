@@ -230,6 +230,10 @@ class WelrokDevice:
         self._pending_set_temp_expire: float = 0.0
         self._pending_mode: Optional[str] = None
         self._pending_mode_expire: float = 0.0
+        self._pending_power: Optional[int] = None
+        self._pending_power_expire: float = 0.0
+        self._pending_bright: Optional[int] = None
+        self._pending_bright_expire: float = 0.0
 
         self._params_failures = 0
         self._telemetry_failures = 0
@@ -356,6 +360,14 @@ class WelrokDevice:
         else:
             bright_ui = bright_raw * 10
 
+        if self._pending_bright is not None:
+            if time.monotonic() > self._pending_bright_expire:
+                self._pending_bright = None
+            elif bright_ui == self._pending_bright:
+                self._pending_bright = None
+            else:
+                bright_ui = self._pending_bright
+
         set_temp = int(device_controls_state.get("setTemp", 0))
         if self._pending_set_temp is not None:
             if time.monotonic() > self._pending_set_temp_expire:
@@ -365,8 +377,17 @@ class WelrokDevice:
             else:
                 set_temp = self._pending_set_temp
 
+        power = int(device_controls_state.get("powerOff", 0))
+        if self._pending_power is not None:
+            if time.monotonic() > self._pending_power_expire:
+                self._pending_power = None
+            elif power == self._pending_power:
+                self._pending_power = None
+            else:
+                power = self._pending_power
+
         return {
-            "Power": int(device_controls_state.get("powerOff", 0)),
+            "Power": power,
             "Bright": bright_ui,
             "Set temperature": set_temp,
         }
@@ -593,6 +614,8 @@ class WelrokDevice:
             logger.exception("Error sending command for device %s", self._id)
 
     async def set_power(self, power: int):
+        self._pending_power = 1 - power
+        self._pending_power_expire = time.monotonic() + 30.0
         mqtt_data, http_params = self._data_parser.format_command(
             config.ParamCode.POWER, power, config.HttpCode.POWER
         )
@@ -614,6 +637,8 @@ class WelrokDevice:
             config.SET_TEMP_KEEP_SCHEDULE_MODE and self._current_mode == "Auto"
         )
         if need_mode_switch:
+            self._pending_mode = "Manual"
+            self._pending_mode_expire = time.monotonic() + 30.0
             mqtt_data_mode, http_params_mode = self._data_parser.format_command(
                 config.ParamCode.MODE, str(config.ModeCode.MANUAL.value), config.HttpCode.MODE
             )
@@ -674,6 +699,12 @@ class WelrokDevice:
             return
         if bright == 10:
             self._pending_bright_detection = True
+        if self._legacy_bright and bright == 9:
+            pending_bright_ui = 100
+        else:
+            pending_bright_ui = bright * 10
+        self._pending_bright = pending_bright_ui
+        self._pending_bright_expire = time.monotonic() + 30.0
         mqtt_data, http_params = self._data_parser.format_command(
             config.ParamCode.BRIGHT, bright, config.HttpCode.BRIGHT
         )

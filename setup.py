@@ -20,7 +20,7 @@ setup(
     license="MIT",
     install_requires=[
         "rpds-py==0.5.3",
-        "aiohttp==3.7.4",
+        "aiohttp==3.9.5",
         "aiosignal",
         "attrs",
         "bidict",

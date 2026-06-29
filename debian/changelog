@@ -1,3 +1,11 @@
+wb-welrok (0.1.10) RELEASED; urgency=low
+
+  * Suppress UI flicker on power/brightness commands by tracking pending
+    state.
+  * Bump aiohttp 3.7.4 → 3.9.5 
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 29 Jun 2026 14:44:17 +0300
+
 wb-welrok (0.1.9) RELEASED; urgency=low
 
   * Batch and debounce commands via _cmd_pending/_command_loop
