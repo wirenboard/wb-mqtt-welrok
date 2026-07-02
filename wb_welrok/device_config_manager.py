@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import fields
 from typing import List
 
 import jsonschema
@@ -32,11 +33,20 @@ class ConfigManager:
                 if len(id_list) != len(set(id_list)):
                     raise ValueError("Device ID must be unique")
 
-                self.devices = [DeviceConfig(**d) for d in config_data.get("devices", [])]
+                for d in config_data.get("devices", []):
+                    if "mqtt_server_uri" in d and "mqtt_server_uri" not in config_data:
+                        config_data["mqtt_server_uri"] = d["mqtt_server_uri"]
+                        break
+
+                known_fields = {f.name for f in fields(DeviceConfig)}
+                self.devices = [
+                    DeviceConfig(**{k: v for k, v in d.items() if k in known_fields})
+                    for d in config_data.get("devices", [])
+                ]
                 self.mqtt_server_uri = config_data.get("mqtt_server_uri", self.mqtt_server_uri)
                 self.debug = config_data.get("debug", False)
             return self
-        except (jsonschema.ValidationError, ValueError, FileNotFoundError) as e:
+        except (jsonschema.ValidationError, ValueError, FileNotFoundError, TypeError) as e:
             return None
 
     def __repr__(self):

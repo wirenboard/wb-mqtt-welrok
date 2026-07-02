@@ -1,3 +1,15 @@
+wb-welrok (0.1.11) RELEASED; urgency=medium
+
+  * Fix service crash after package upgrade when existing config has
+    mqtt_server_uri inside a device block (old format): silently migrate
+    the value to the root level before processing.
+  * Filter unknown keys from device config entries before constructing
+    DeviceConfig, preventing TypeError on future field migrations.
+  * Catch TypeError in load_and_validate alongside existing exceptions
+    as an additional safety net.
+
+  -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 02 Jul 2026 12:34:22 +0300
+
 wb-welrok (0.1.10) RELEASED; urgency=low
 
   * Suppress UI flicker on power/brightness commands by tracking pending
