@@ -64,19 +64,12 @@
                     "description": "Required for local thermostat control",
                     "propertyOrder": 7
                 },
-                "mqtt_server_uri": {
-                    "type": "string",
-                    "title": "MQTT broker URI",
-                    "default": "tcp://localhost:1883",
-                    "description": "Broker Uri with login and password. Required if broker has user and password. Example line: 'tcp://user:password@localhost:1883'",
-                    "propertyOrder": 8
-                },
                 "mqtt_enable": {
                     "type": "boolean",
                     "title": "Use MQTT",
                     "default": false,
                     "description": "Use mqtt for control",
-                    "propertyOrder": 9
+                    "propertyOrder": 8
                 }
             },
             "required": [
@@ -112,12 +105,19 @@
             "_format": "tabs",
             "propertyOrder": 1
         },
+        "mqtt_server_uri": {
+            "type": "string",
+            "title": "MQTT broker URI",
+            "default": "tcp://localhost:1883",
+            "description": "Broker Uri with login and password. Required if broker has user and password. Example line: 'tcp://user:password@localhost:1883'",
+            "propertyOrder": 2
+        },
         "debug": {
             "type": "boolean",
             "title": "Enable debug logging",
             "default": false,
             "_format": "checkbox",
-            "propertyOrder": 2
+            "propertyOrder": 3
         }
     },
     "required": [

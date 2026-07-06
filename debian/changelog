@@ -1,3 +1,104 @@
+wb-welrok (0.1.11) RELEASED; urgency=medium
+
+  * Fix service crash after package upgrade when existing config has
+    mqtt_server_uri inside a device block (old format): silently migrate
+    the value to the root level before processing.
+  * Filter unknown keys from device config entries before constructing
+    DeviceConfig, preventing TypeError on future field migrations.
+  * Catch TypeError in load_and_validate alongside existing exceptions
+    as an additional safety net.
+
+  -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 02 Jul 2026 12:34:22 +0300
+
+wb-welrok (0.1.10) RELEASED; urgency=low
+
+  * Suppress UI flicker on power/brightness commands by tracking pending
+    state.
+  * Bump aiohttp 3.7.4 → 3.9.5 
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 29 Jun 2026 14:44:17 +0300
+
+wb-welrok (0.1.9) RELEASED; urgency=low
+
+  * Batch and debounce commands via _cmd_pending/_command_loop
+  * Split run() into _poll_loop and _command_loop running concurrently
+    with asyncio.gather. Commands are queued into _cmd_pending dict with
+    0.5s debounce and last-write-wins deduplication. After each batch,
+    _poll_event wakes _poll_loop for immediate UI refresh (~1s vs ~10s).
+  * Fix inner MQTT killed on HTTP error — removed mqtt.stop() from
+    connection error handlers in _poll_loop; only kept in run() finally.
+  * Apply sensor error flags on first init, not only from second poll
+  * Guard _control_type update while f.5 (air sensor loss) is active
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 17 Jun 2026 11:02:45 +0300
+
+wb-welrok (0.1.8) RELEASED; urgency=low
+
+  * Add fallback HTTP send after MQTT send
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 29 May 2026 16:07:13 +0300
+
+wb-welrok (0.1.7) RELEASED; urgency=low
+
+  * Add _pending_mode for instant UI mode feedback
+  * Guard missing controls in _update_sensor_error_flags
+  * Handle connection errors with graceful MQTT restart
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 18 May 2026 13:12:34 +0300
+
+wb-welrok (0.1.6) RELEASED; urgency=low
+
+  * Isort reformat
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 3 Apr 2026 11:36:58 +0300
+
+wb-welrok (0.1.5) RELEASED; urgency=low
+
+  * Black reformat
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 3 Apr 2026 09:04:02 +0300
+
+wb-welrok (0.1.4) RELEASED; urgency=low
+
+  * Add air/floor control type detection via controlType (param 3)
+  * Fix temperature command routing: manualAir (param 4) for air mode, manualFloorTemperature (param 5) for floor mode
+  * Fix wrong HTTP data_type for temperature commands on AZ devices (int8 vs int16)
+  * Split mode switch and temperature into separate sequential commands
+  * Add SET_TEMP_KEEP_SCHEDULE_MODE flag: set tempTemperature (param 29) without switching to manual
+  * Fix UI flicker on temperature change: pending set temp guard set before first await
+  * Fix sensor error indicator never shown in UI: publish error flag to MQTT control meta per control
+  * Fix crash in temperature formatter when sensor error text passed instead of numeric value
+  * Add fault codes f.3/f.4 (floor sensor open/short circuit) with per-control error flag
+  * Add fault codes f.5 (air sensor loss), f.23 (air sensor battery low) for OZ devices
+  * Add fault codes f.9 (overheat), f.12 (overheat sensor circuit error) for AZ and OZ devices
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 25 Mar 2026 17:01:56 +0300
+
+wb-welrok (0.1.3) RELEASED; urgency=low
+
+  * Fix mistake in initial wb-welrok.conf file
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Thu, 10 Mar 2026 14:28:05 +0300
+
+wb-welrok (0.1.2) RELEASED; urgency=low
+
+  * Refactoring
+  * Data parsing changed
+  * Data formatting has been changed
+  * Changed definition of constants
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Fri, 13 Feb 2026 18:15:42 +0300
+
+wb-welrok (0.1.1) RELEASED; urgency=low
+
+  * Refactoring
+  * Changing class structure
+  * Fix for mode change
+  * Adding information controls
+  * Changing the structure of the initial config
+
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Fri, 12 Feb 2026 19:43:17 +0300
+
 wb-welrok (0.0.20) RELEASED; urgency=low
 
   * Refactoring

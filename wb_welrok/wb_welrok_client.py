@@ -1,22 +1,28 @@
 import asyncio
 import logging
 import signal
-from typing import Dict, Optional, Set
+import traceback
+from typing import Dict, Optional, Set, TypedDict
 
 from wb_welrok import config
-from wb_welrok.mqtt_client import DEFAULT_BROKER_URL, MQTTClient
+from wb_welrok.mqtt_client import MQTTClient
 from wb_welrok.wb_mqtt_device import MQTTDevice
 from wb_welrok.wb_welrok_device import WelrokDevice
 
 logger = logging.getLogger(__name__)
 
 
+class DeviceEntry(TypedDict):
+    task: asyncio.Task
+    welrok: WelrokDevice
+
+
 class WelrokClient:
     def __init__(self, devices_config):
         self.devices_config = devices_config
         self.mqtt_client_running = False
-        self.mqtt_server_uri = devices_config[0].get("mqtt_server_uri") if devices_config else None
-        self.active_devices: Dict[str, Dict] = {}
+        self.mqtt_server_uri = devices_config.mqtt_server_uri
+        self.active_devices: Dict[str, DeviceEntry] = {}
         self.initializing: Set[str] = set()
         self.monitor_task: Optional[asyncio.Task] = None
 
@@ -68,36 +74,17 @@ class WelrokClient:
         try:
             await self.remove_device(device_id)
 
-            welrok_device = WelrokDevice(device_config)
-            params_states = await welrok_device.get_device_state(config.CMD_CODES["params"])
-            device_controls_state = welrok_device.parse_device_params_state(params_states) or {}
-            telemetry = await welrok_device.get_device_state(config.CMD_CODES["telemetry"]) or {}
-            device_controls_state.update(
-                {
-                    "read_only_temp": welrok_device.parse_temperature_response(telemetry),
-                    "load": welrok_device.get_load(telemetry),
-                }
-            )
-
-            mqtt_device = MQTTDevice(self.mqtt_client, device_controls_state)
-
-            mqtt_device.set_welrok_device(welrok_device)
-            welrok_device.set_mqtt_device(mqtt_device)
-            mqtt_device.publicate()
+            welrok_device = WelrokDevice(device_config, self.mqtt_server_uri, self.mqtt_client)
             task = asyncio.create_task(welrok_device.run())
-            self.active_devices[device_id] = {
-                "task": task,
-                "welrok": welrok_device,
-                "mqtt": mqtt_device,
-            }
+            self.active_devices[device_id] = {"task": task, "welrok": welrok_device}
 
             def done_callback(t):
-                logger.info(f"Device task {device_id} finished")
+                logger.info("Device task %s finished", device_id)
                 asyncio.create_task(self.remove_device(device_id))
 
             task.add_done_callback(done_callback)
         except Exception:
-            logger.exception(f"Failed to initialize device {device_id}")
+            logger.exception("Failed to initialize device %s", device_id)
         finally:
             self.initializing.discard(device_id)
 
@@ -105,20 +92,17 @@ class WelrokClient:
         entry = self.active_devices.pop(device_id, None)
         if entry:
             try:
+                entry["welrok"]._wb_mqtt_device.remove()
+                await entry["welrok"].close_session()
                 entry["task"].cancel()
             except Exception:
-                logger.exception(f"Error cancelling device task {device_id}")
-            try:
-                if entry.get("mqtt"):
-                    entry["mqtt"].remove()
-            except Exception:
-                logger.exception(f"Error removing mqtt device {device_id}")
+                logger.exception("Error removing mqtt device %s", device_id)
 
     async def monitor_devices(self):
         while True:
             try:
-                configured_ids = {d.get("device_id") for d in self.devices_config if d.get("device_id")}
-                for device_config in self.devices_config:
+                configured_ids = {d.device_id for d in self.devices_config.devices}
+                for device_config in self.devices_config.devices:
                     device_id = device_config.get("device_id")
                     if device_id and (
                         device_id not in self.active_devices or self.active_devices[device_id]["task"].done()
@@ -141,8 +125,8 @@ class WelrokClient:
         loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
         loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
 
-        self.mqtt_client = MQTTClient("welrok", self.mqtt_server_uri or DEFAULT_BROKER_URL)
-        self.mqtt_client.user_data_set(loop)
+        self.mqtt_client = MQTTClient("welrok", self.mqtt_server_uri)
+        self.mqtt_client.user_data_set(self)
         self.mqtt_client.on_connect = self._on_mqtt_client_connect
         self.mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
         self.mqtt_client.start()
