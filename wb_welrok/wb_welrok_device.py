@@ -23,8 +23,9 @@ CMD_DEBOUNCE_DELAY = 0.5
 
 class MsgProcessor:
 
-    def __init__(self):
+    def __init__(self, temp_formater: Callable):
         self.config = config
+        self.temp_formater = temp_formater
 
     def Power(self, msg) -> str:
         return "0" if msg == "1" else "1"
@@ -32,7 +33,7 @@ class MsgProcessor:
     def Load(self, msg) -> str:
         return "Включено" if msg == "1" else "Выключено"
 
-    def temperature(self, msg, topic) -> Optional[float]:
+    def temperature(self, msg, topic) -> Optional[str]:
         if "open" not in msg and "Set " not in topic:
             try:
                 return float(msg)
@@ -56,7 +57,7 @@ class MsgProcessor:
 class WelrokDataParser:
 
     def __init__(self):
-        self.msg_processor = MsgProcessor()
+        self.msg_processor = MsgProcessor(self.temp_formater)
         self._temp_div = config.DefaultParseValue.TEMP_DIV.value
         self._temp_data_type = config.HttpCode.TEMP.value
         self.upper_limit_temp = config.DefaultParseValue.UPPER_LIMIT_TEMP.value
@@ -65,6 +66,12 @@ class WelrokDataParser:
         self.lower_limit_air_temp = config.DefaultParseValue.LOWER_LIMIT_TEMP.value
         self.upper_limit_bright = config.DefaultParseValue.UPPER_LIMIT_BRIGHT.value
         self.lower_limit_bright = config.DefaultParseValue.LOWER_LIMIT_BRIGHT.value
+
+    def temp_formater(self, temp):
+        try:
+            return f"{round(float(temp), 2)} °C"
+        except (ValueError, TypeError):
+            return str(temp)
 
     def parse_power_off(self, par: DeviceParam):
         return "1" if par.value == "0" else "0"
