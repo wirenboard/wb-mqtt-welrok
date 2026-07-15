@@ -318,6 +318,14 @@ class WelrokDevice:
             if self._wb_mqtt_device.has_control(control_title):
                 self._wb_mqtt_device.set_control_error_state(control_title, error_text)
 
+    def _update_sensor_error_flags(self, telemetry: dict):
+        if not self._wb_mqtt_device:
+            return
+        sensor_errors = self._data_parser.parse_sensor_errors(telemetry)
+        for control_title, error_text in sensor_errors.items():
+            if self._wb_mqtt_device.has_control(control_title):
+                self._wb_mqtt_device.set_control_error_state(control_title, error_text)
+
     async def set_current_control_state(self, current_states: dict):
         for key, value in current_states.items():
             logger.debug("Welrok device %s updating control %s with value %s", self.id, key, value)
