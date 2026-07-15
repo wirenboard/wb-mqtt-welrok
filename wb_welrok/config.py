@@ -208,9 +208,10 @@ CONTROLS_CONFIG = {
         },
         "Temps": {
             "meta_template": {
-                "control_type": "text",
+                "control_type": "value",
                 "read_only": True,
                 "units": "deg C",
+                "precision": 0.01,
             },
             "order_start": None,
         },

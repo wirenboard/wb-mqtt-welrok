@@ -134,16 +134,14 @@ class MQTTDevice:
             )
             meta_obj = wbmqtt.ControlMeta(**meta)
             value = self._device_state["read_only_temp"][read_only_temp]
-            self._device.create_control(
-                read_only_temp, meta_obj, self._welrok_device._data_parser.temp_formater(value)
-            )
+            self._device.create_control(read_only_temp, meta_obj, value)
 
-    def update(self, control_name: str, value: str) -> None:
+    def update(self, control_name: str, value) -> None:
         if self._device:
             self._device.set_control_value(control_name, value)
             logger.debug("%s %s control updated with value %s", self._welrok_device.id, control_name, value)
 
-    def set_readonly(self, control_name: str, value: str) -> None:
+    def set_readonly(self, control_name: str, value) -> None:
         try:
             if self._device:
                 self._device.set_control_read_only(control_name, True)
@@ -165,7 +163,7 @@ class MQTTDevice:
     def has_control(self, control_name: str) -> bool:
         return self._device is not None and control_name in self._device.get_controls_list()
 
-    def ensure_temp_control(self, control_name: str, value: str) -> None:
+    def ensure_temp_control(self, control_name: str, value) -> None:
         if self.has_control(control_name):
             return
         temps_cfg = config.CONTROLS_CONFIG["Readonly"]["Temps"]

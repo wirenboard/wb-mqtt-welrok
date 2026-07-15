@@ -23,9 +23,8 @@ CMD_DEBOUNCE_DELAY = 0.5
 
 class MsgProcessor:
 
-    def __init__(self, temp_formater: Callable):
+    def __init__(self):
         self.config = config
-        self.temp_formater = temp_formater
 
     def Power(self, msg) -> str:
         return "0" if msg == "1" else "1"
@@ -33,9 +32,13 @@ class MsgProcessor:
     def Load(self, msg) -> str:
         return "Включено" if msg == "1" else "Выключено"
 
-    def temperature(self, msg, topic) -> Optional[str]:
+    def temperature(self, msg, topic) -> Optional[float]:
         if "open" not in msg and "Set " not in topic:
-            return self.temp_formater(msg)
+            try:
+                return float(msg)
+            except (ValueError, TypeError):
+                logger.warning("Non-numeric temperature payload ignored: %s", msg)
+                return None
 
     def Current_mode(self, msg) -> Optional[str]:
         return self.config.MODE_NAMES_TRANSLATE.get(msg, msg)
@@ -53,7 +56,7 @@ class MsgProcessor:
 class WelrokDataParser:
 
     def __init__(self):
-        self.msg_processor = MsgProcessor(self.temp_formater)
+        self.msg_processor = MsgProcessor()
         self._temp_div = config.DefaultParseValue.TEMP_DIV.value
         self._temp_data_type = config.HttpCode.TEMP.value
         self.upper_limit_temp = config.DefaultParseValue.UPPER_LIMIT_TEMP.value
@@ -62,12 +65,6 @@ class WelrokDataParser:
         self.lower_limit_air_temp = config.DefaultParseValue.LOWER_LIMIT_TEMP.value
         self.upper_limit_bright = config.DefaultParseValue.UPPER_LIMIT_BRIGHT.value
         self.lower_limit_bright = config.DefaultParseValue.LOWER_LIMIT_BRIGHT.value
-
-    def temp_formater(self, temp):
-        try:
-            return f"{round(float(temp), 2)} \u00b0C"
-        except (ValueError, TypeError):
-            return str(temp)
 
     def parse_power_off(self, par: DeviceParam):
         return "1" if par.value == "0" else "0"
@@ -142,13 +139,7 @@ class WelrokDataParser:
             for code in config.TemperatureCode:
                 if code.key in data:
                     val = int(data[code.key])
-                    temp = round(val / code.divisor, code.precision)
-                    current_temp[code.title] = str(temp)
-            for fault_code in config.FaultCode:
-                if fault_code == config.FaultCode.AIR_SENSOR_BATTERY:
-                    continue
-                if data.get(fault_code.code) == "1":
-                    current_temp[fault_code.control_title] = fault_code.error_text
+                    current_temp[code.title] = round(val / code.divisor, code.precision)
         except Exception as e:
             logger.exception("Error parsing temperature response: %s", e)
         return current_temp
@@ -314,11 +305,10 @@ class WelrokDevice:
 
     async def set_current_temp(self, current_temp: dict):
         for key, value in current_temp.items():
-            display_value = self._data_parser.temp_formater(value)
-            logger.debug("Welrok device %s setting readonly temp %s = %s", self._id, key, display_value)
+            logger.debug("Welrok device %s setting readonly temp %s = %s", self._id, key, value)
             if self._wb_mqtt_device:
-                self._wb_mqtt_device.ensure_temp_control(key, display_value)
-                self._wb_mqtt_device.set_readonly(key, display_value)
+                self._wb_mqtt_device.ensure_temp_control(key, value)
+                self._wb_mqtt_device.set_readonly(key, value)
 
     def _update_sensor_error_flags(self, telemetry: dict):
         if not self._wb_mqtt_device:
@@ -555,7 +545,7 @@ class WelrokDevice:
             return
         try:
             topic_name, msg = self._data_parser.mqtt_msg_parse(msg)
-            if topic_name and msg:
+            if topic_name and msg is not None:
                 self._wb_mqtt_device.update(topic_name, msg)
         except Exception:
             logger.exception("Error in mqtt_data_callback for device %s", self._id)

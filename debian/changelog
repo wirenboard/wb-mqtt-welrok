@@ -1,3 +1,16 @@
+wb-welrok (0.1.12) unstable; urgency=medium
+
+    * Remove temp_formater: read-only temperature values are now published
+      as plain float, no more manual "°C" string formatting.
+    * Realtime (inner MQTT) temperature updates also converted to float
+      with try/except, keeping them in sync with the polled values.
+    * Add warning log for non-numeric temperature payloads on the realtime
+      path instead of silently forwarding them.
+    * Log config load failures in ConfigManager.load_and_validate instead
+      of failing silently.
+
+   -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 15 Jul 2026 10:57:11 +0300
+
 wb-welrok (0.1.11) RELEASED; urgency=medium
 
   * Fix service crash after package upgrade when existing config has

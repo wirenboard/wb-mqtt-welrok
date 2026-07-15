@@ -15,6 +15,7 @@ class ControlMeta:  # pylint: disable=R0903,disable=R0913
         read_only: bool = False,
         min_value: int = None,
         max_value: int = None,
+        precision: float = None,
         error: str = None,
     ) -> None:
         self.title = title
@@ -25,6 +26,7 @@ class ControlMeta:  # pylint: disable=R0903,disable=R0913
         self.read_only = read_only
         self.min = min_value
         self.max = max_value
+        self.precision = precision
         self.error = error
 
 
@@ -48,7 +50,7 @@ class Device:
         for mqtt_control_name in self._controls.copy():
             self.remove_control(mqtt_control_name)
 
-    def create_control(self, mqtt_control_name: str, meta: ControlMeta, value: str) -> None:
+    def create_control(self, mqtt_control_name: str, meta: ControlMeta, value) -> None:
         self._controls[mqtt_control_name] = ControlState(meta, None)
         self._publish_control_meta(mqtt_control_name, meta)
         self.set_control_value(mqtt_control_name, value)
@@ -62,7 +64,7 @@ class Device:
     def get_controls_list(self) -> list[str]:
         return list(self._controls.keys())
 
-    def set_control_value(self, mqtt_control_name: str, value: str, force=False) -> None:
+    def set_control_value(self, mqtt_control_name: str, value, force=False) -> None:
         if mqtt_control_name in self._controls:
             control = self._controls[mqtt_control_name]
             if control.value != value or force:
@@ -137,6 +139,8 @@ class Device:
             meta_dict["min"] = meta.min
         if meta.max is not None:
             meta_dict["max"] = meta.max
+        if meta.precision is not None:
+            meta_dict["precision"] = meta.precision
         if meta.order is not None:
             meta_dict["order"] = meta.order
         if meta.error is not None:
@@ -145,7 +149,7 @@ class Device:
         meta_json = json.dumps(meta_dict)
         self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", meta_json)
 
-    def _publish(self, topic: str, value: str) -> None:
+    def _publish(self, topic: str, value) -> None:
         if value is None:
             logging.debug("Clear %s", topic)
         else:
