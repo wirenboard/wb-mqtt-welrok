@@ -35,7 +35,11 @@ class MsgProcessor:
 
     def temperature(self, msg, topic) -> Optional[str]:
         if "open" not in msg and "Set " not in topic:
-            return self.temp_formater(msg)
+            try:
+                return float(msg)
+            except (ValueError, TypeError):
+                logger.warning("Non-numeric temperature payload ignored: %s", msg)
+                return None
 
     def Current_mode(self, msg) -> Optional[str]:
         return self.config.MODE_NAMES_TRANSLATE.get(msg, msg)
@@ -65,7 +69,7 @@ class WelrokDataParser:
 
     def temp_formater(self, temp):
         try:
-            return f"{round(float(temp), 2)} \u00b0C"
+            return f"{round(float(temp), 2)} °C"
         except (ValueError, TypeError):
             return str(temp)
 
@@ -142,13 +146,7 @@ class WelrokDataParser:
             for code in config.TemperatureCode:
                 if code.key in data:
                     val = int(data[code.key])
-                    temp = round(val / code.divisor, code.precision)
-                    current_temp[code.title] = str(temp)
-            for fault_code in config.FaultCode:
-                if fault_code == config.FaultCode.AIR_SENSOR_BATTERY:
-                    continue
-                if data.get(fault_code.code) == "1":
-                    current_temp[fault_code.control_title] = fault_code.error_text
+                    current_temp[code.title] = round(val / code.divisor, code.precision)
         except Exception as e:
             logger.exception("Error parsing temperature response: %s", e)
         return current_temp
@@ -314,11 +312,18 @@ class WelrokDevice:
 
     async def set_current_temp(self, current_temp: dict):
         for key, value in current_temp.items():
-            display_value = self._data_parser.temp_formater(value)
-            logger.debug("Welrok device %s setting readonly temp %s = %s", self._id, key, display_value)
+            logger.debug("Welrok device %s setting readonly temp %s = %s", self._id, key, value)
             if self._wb_mqtt_device:
-                self._wb_mqtt_device.ensure_temp_control(key, display_value)
-                self._wb_mqtt_device.set_readonly(key, display_value)
+                self._wb_mqtt_device.ensure_temp_control(key, value)
+                self._wb_mqtt_device.set_readonly(key, value)
+
+    def _update_sensor_error_flags(self, telemetry: dict):
+        if not self._wb_mqtt_device:
+            return
+        sensor_errors = self._data_parser.parse_sensor_errors(telemetry)
+        for control_title, error_text in sensor_errors.items():
+            if self._wb_mqtt_device.has_control(control_title):
+                self._wb_mqtt_device.set_control_error_state(control_title, error_text)
 
     def _update_sensor_error_flags(self, telemetry: dict):
         if not self._wb_mqtt_device:
@@ -555,7 +560,7 @@ class WelrokDevice:
             return
         try:
             topic_name, msg = self._data_parser.mqtt_msg_parse(msg)
-            if topic_name and msg:
+            if topic_name and msg is not None:
                 self._wb_mqtt_device.update(topic_name, msg)
         except Exception:
             logger.exception("Error in mqtt_data_callback for device %s", self._id)

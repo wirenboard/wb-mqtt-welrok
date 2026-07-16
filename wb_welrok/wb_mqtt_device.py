@@ -134,9 +134,7 @@ class MQTTDevice:
             )
             meta_obj = wbmqtt.ControlMeta(**meta)
             value = self._device_state["read_only_temp"][read_only_temp]
-            self._device.create_control(
-                read_only_temp, meta_obj, self._welrok_device._data_parser.temp_formater(value)
-            )
+            self._device.create_control(read_only_temp, meta_obj, value)
 
     def update(self, control_name: str, value: str) -> None:
         if self._device:

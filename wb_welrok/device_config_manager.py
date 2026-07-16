@@ -47,6 +47,7 @@ class ConfigManager:
                 self.debug = config_data.get("debug", False)
             return self
         except (jsonschema.ValidationError, ValueError, FileNotFoundError, TypeError) as e:
+            logger.error("Failed to load config %s: %s", self.config_path, e)
             return None
 
     def __repr__(self):
