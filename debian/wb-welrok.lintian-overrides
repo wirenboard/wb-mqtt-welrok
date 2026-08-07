@@ -1,0 +1,6 @@
+arch-independent-package-contains-binary-or-object
+dir-or-file-in-opt
+python3-script-but-no-python3-dep
+shell-script-fails-syntax-check
+unstripped-binary-or-object
+wrong-path-for-interpreter

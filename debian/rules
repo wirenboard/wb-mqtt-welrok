@@ -40,7 +40,7 @@ build-arch:
 	dh $@ $(DH_VENV_ARGS) --sourcedir $(SDIST_DIR)
 
 %:
-	dh $@ --with python-virtualenv --with systemd
+	dh $@ --with python-virtualenv
 
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
@@ -82,8 +82,10 @@ override_dh_auto_install:
 	# binary package area to avoid lintian's package-installs-python-pycache-dir
 	dh_auto_install
 	find debian/$(shell dh_listpackages) -type d -name '__pycache__' -exec rm -rf {} + || true
-	dh_systemd_enable || true
-	dh_systemd_start || true
+
+override_dh_installsystemd:
+	dh_installsystemd --name=wb-welrok
+
 #override_dh_shlibdeps:
 #	dh_shlibdeps -X/x86/ -X/Cython/ -X/PIL/ -X/psycopg2/ -X/_yaml
 
