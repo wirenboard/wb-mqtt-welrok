@@ -1,15 +1,21 @@
+wb-welrok (0.1.13) unstable; urgency=medium
+
+  * Clean up /etc/wb-mqtt-dali.conf on purge
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 11 Aug 2026 13:20:00 +0400
+
 wb-welrok (0.1.12) unstable; urgency=medium
 
-    * Remove temp_formater: read-only temperature values are now published
-      as plain float, no more manual "°C" string formatting.
-    * Realtime (inner MQTT) temperature updates also converted to float
-      with try/except, keeping them in sync with the polled values.
-    * Add warning log for non-numeric temperature payloads on the realtime
-      path instead of silently forwarding them.
-    * Log config load failures in ConfigManager.load_and_validate instead
-      of failing silently.
+  * Remove temp_formater: read-only temperature values are now published
+    as plain float, no more manual "°C" string formatting.
+  * Realtime (inner MQTT) temperature updates also converted to float
+    with try/except, keeping them in sync with the polled values.
+  * Add warning log for non-numeric temperature payloads on the realtime
+    path instead of silently forwarding them.
+  * Log config load failures in ConfigManager.load_and_validate instead
+    of failing silently.
 
-   -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 15 Jul 2026 10:57:11 +0300
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 15 Jul 2026 10:57:11 +0300
 
 wb-welrok (0.1.11) RELEASED; urgency=medium
 
@@ -21,7 +27,7 @@ wb-welrok (0.1.11) RELEASED; urgency=medium
   * Catch TypeError in load_and_validate alongside existing exceptions
     as an additional safety net.
 
-  -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 02 Jul 2026 12:34:22 +0300
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 02 Jul 2026 12:34:22 +0300
 
 wb-welrok (0.1.10) RELEASED; urgency=low
 
@@ -122,7 +128,7 @@ wb-welrok (0.0.19) RELEASED; urgency=low
 
   * Refactoring
 
- -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wen, 14 Jan 2026 20:55:43 +0300
+ -- Ivan Belokrylov <belokrylov.i@welrok.com>  Wed, 14 Jan 2026 20:55:43 +0300
 
 wb-welrok (0.0.17) RELEASED; urgency=low
 
