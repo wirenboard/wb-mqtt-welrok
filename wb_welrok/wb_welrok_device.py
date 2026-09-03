@@ -5,7 +5,6 @@ import traceback
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 import aiohttp
-
 from wb_welrok import config
 from wb_welrok.decorators import retry
 from wb_welrok.mqtt_client import MQTTClient
@@ -458,6 +457,10 @@ class WelrokDevice:
                     self._mqtt.stop()
                 except Exception:
                     logger.exception("Error while stopping mqtt client for device %s", self._id)
+
+    def republish(self) -> None:
+        if self._wb_mqtt_device is not None:
+            self._wb_mqtt_device.republish()
 
     async def _poll_loop(self) -> None:
         while True:

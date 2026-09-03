@@ -1,139 +1,30 @@
-# Описание тестов и инструкция по запуску
+# Tests
 
-Этот файл описывает существующие тесты в репозитории и шаги для локального запуска.
+Run from the repository root:
 
-Кратко:
-
-- Файлы с тестами находятся в папке `tests/`.
-- Основные тесты: `tests/test_main.py`, `tests/test_mqtt_client.py`.
-
-## Описание тестов
-
-### `tests/test_mqtt_client.py`
-
-Тестирует класс `MQTTClient` — обёртку над paho-mqtt для работы с MQTT-брокером:
-
-- Генерация уникальных client_id с случайными суффиксами
-- Инициализация с различными типами брокеров (Unix-socket по умолчанию, TCP, WebSockets)
-- Парсинг URL с кредами (username/password)
-- Запуск и остановка клиента (threaded/non-threaded режимы)
-- Обработка успешного/неуспешного подключения
-- Обработка ошибок подключения и переподключения
-- Настройка автоматического реконнекта с задержками
-- Интеграционные тесты с реальным брокером (пропущены по умолчанию)
-
-### `tests/test_main.py`
-
-Тестирует основные компоненты системы (`WelrokDevice`, `MQTTDevice`, `WelrokClient`) — логику управления устройствами, парсинг состояний, интеграцию с MQTT.
-
-## Тестирование
-
-### Подготовка окружения:
-
-1. Создайте и активируйте виртуальное окружение (рекомендуется):
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
+```sh
+python3 -m pytest tests/
 ```
 
-2. Установите пакет проекта в режиме разработки и pytest:
+The tests use mocks and temporary files; no MQTT broker, controller, network access, or Welrok
+thermostat is required.
 
-```bash
-pip install -e .
-pip install pytest
-pip install legacy-cgi
+`test_mqtt_client.py` checks broker URL validation, nonblocking threaded startup, credentials, and
+shutdown ordering. `test_main.py` checks service exit codes, configuration failures, MQTT
+authentication handling, state restoration after reconnect, and cleanup of an unavailable device.
 
-```
-
-### Запуск тестов:
-
-- Запустить все тесты:
-
-```bash
-pytest -q
-```
-
-- Запустить тесты в конкретном файле:
-
-```bash
-pytest tests/test_mqtt_client.py -q
-```
-
-- Запустить интеграционные тесты (требуют реального MQTT-брокера):
-
-```bash
-# 1. Запустите mosquitto (если еще не запущен)
-sudo systemctl start mosquitto
-
-# 2. Временно уберите декоратор @pytest.mark.skip в тестах:
-#    - test_real_connection
-#    - test_reconnect_on_disconnect
-# Или используйте параметр для игнорирования skip:
-pytest tests/test_mqtt_client.py --run-skipped -k "Integration"
-
-# Альтернативно: закомментируйте @pytest.mark.skip и запустите:
-pytest tests/test_mqtt_client.py::TestMQTTClientIntegration -v
-```
-
-### Интерпретация результатов:
-
-При запуске pytest выводит статистику в формате:
-
-```
-14 passed, 2 skipped, 1 warning in 0.20s
-```
-
-**Статусы:**
-- `passed` — тесты прошли успешно ✓
-- `failed` — тесты упали, требуется исправление (pytest покажет трейсбек с деталями ошибки)
-- `skipped` — тесты пропущены (например, интеграционные тесты, требующие внешних сервисов)
-- `warnings` — предупреждения (не критично, но можно изучить; обычно это deprecation warnings из зависимостей)
-
-**При падении теста:**
-1. Pytest покажет полный трейсбек с местом ошибки
-2. Обратите внимание на секцию `AssertionError` — там указано, что именно не совпало с ожиданием
-3. Используйте `-s` для вывода логов/принтов из теста для детальной отладки
-4. Используйте `-k test_name` для запуска только конкретного упавшего теста
-
-**Пример успешного прогона:**
-```bash
-$ pytest -q
-......................                                    [100%]
-31 passed, 2 skipped, 1 warning in 0.22s
-```
-
-### Параметры полезные при отладке:
-
-- `-q` — компактный вывод;
-- `-s` — не подавлять вывод в stdout/stderr (полезно для отладочных print/log);
-- `-k <expr>` — запуск тестов, имена которых соответствуют выражению `expr`;
-- `--maxfail=1` — остановить после первой неудачи.
-
-### Покрытие (опционально):
-
-```bash
-pip install coverage
-coverage run -m pytest
-coverage report -m
-```
-
-### Особенности, которые стоит учесть:
-
-- Некоторые тесты могут требовать наличия MQTT-брокера или внешних сервисов. Если тесты для `mqtt_client` интеграционные и требуют реального брокера, можно поставить локальный Mosquitto:
-
-```bash
-# на Debian/Ubuntu
-sudo apt update && sudo apt install -y mosquitto
-sudo systemctl start mosquitto
-```
-
-- Однако большинство модульных тестов используют мокирование и не требуют реальных сетевых подключений. В случае неясностей смотрите тесты в `tests/` — они показывают ожидания и используемую конфигурацию.
-
-### Полезные команды CI-стиля:
-
-```bash
-# компактный запуск в CI
-pytest --maxfail=1 --disable-warnings -q
-```
-
+| Test | Verifies |
+| --- | --- |
+| `test_client_id_is_unique` | MQTT client identifiers do not collide |
+| `test_invalid_broker_url_is_rejected` | incomplete and unsupported broker URIs are invalid |
+| `test_threaded_tcp_client_starts_nonblocking_connection` | TCP startup leaves the main loop responsive |
+| `test_threaded_unix_client_starts_nonblocking_connection` | UNIX socket startup leaves the main loop responsive |
+| `test_credentials_are_applied_before_connection` | URI credentials reach Paho before connecting |
+| `test_stop_disconnects_before_stopping_network_loop` | queued cleanup messages can be sent before shutdown |
+| `test_empty_configuration_exits_with_status_7` | a placeholder device is treated as no work |
+| `test_unreadable_configuration_exits_with_status_6` | filesystem errors are configuration errors |
+| `test_invalid_broker_is_rejected_by_config_manager` | a bad broker URI produces status 6 at startup |
+| `test_device_republishes_metadata_values_and_subscriptions` | reconnect restores retained state and commands |
+| `test_root_mqtt_reconnect_republishes_active_devices` | root reconnect reaches every active thermostat |
+| `test_authentication_refusal_exits_with_status_2` | CONNACK authentication refusal produces status 2 |
+| `test_removing_unavailable_device_closes_session` | shutdown cleans a thermostat which never answered |

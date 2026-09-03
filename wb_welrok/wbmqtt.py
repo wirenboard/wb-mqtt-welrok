@@ -40,7 +40,10 @@ class Device:
     def __init__(self, mqtt_client, device_mqtt_name: str, device_title: str, driver_name: str) -> None:
         self._mqtt_client = mqtt_client
         self._base_topic = f"/devices/{device_mqtt_name}"
+        self._device_title = device_title
+        self._driver_name = driver_name
         self._controls = {}
+        self._control_callbacks = {}
         self._publish(self._base_topic + "/meta/name", device_title)
         self._publish(self._base_topic + "/meta/driver", driver_name)
 
@@ -114,6 +117,7 @@ class Device:
     def add_control_message_callback(self, mqtt_control_name: str, callback: callable) -> None:
         if mqtt_control_name in self._controls:
             control_base_topic = self._get_control_base_topic(mqtt_control_name)
+            self._control_callbacks[mqtt_control_name] = callback
             self._mqtt_client.subscribe(control_base_topic + "/on")
             self._mqtt_client.message_callback_add(control_base_topic + "/on", callback)
         else:
@@ -149,6 +153,18 @@ class Device:
         meta_json = json.dumps(meta_dict)
         self._publish(self._get_control_base_topic(mqtt_control_name) + "/meta", meta_json)
 
+    def republish(self) -> None:
+        self._publish(self._base_topic + "/meta/name", self._device_title)
+        self._publish(self._base_topic + "/meta/driver", self._driver_name)
+        for mqtt_control_name, control in self._controls.items():
+            self._publish_control_meta(mqtt_control_name, control.meta)
+            self._publish(self._get_control_base_topic(mqtt_control_name), control.value)
+            callback = self._control_callbacks.get(mqtt_control_name)
+            if callback is not None:
+                topic = self._get_control_base_topic(mqtt_control_name) + "/on"
+                self._mqtt_client.subscribe(topic)
+                self._mqtt_client.message_callback_add(topic, callback)
+
     def _publish(self, topic: str, value: str) -> None:
         if value is None:
             logging.debug("Clear %s", topic)
@@ -156,7 +172,9 @@ class Device:
             logging.debug("Publish %s %s", topic, value)
         payload = "" if value is None else value
         try:
-            self._mqtt_client.publish(topic, payload, retain=True)
+            result = self._mqtt_client.publish(topic, payload, retain=True)
+            if result.rc != 0:
+                logging.getLogger(__name__).error("Failed to publish to %s: MQTT error %s", topic, result.rc)
         except Exception:
             logging.getLogger(__name__).exception("Failed to publish to %s", topic)
 

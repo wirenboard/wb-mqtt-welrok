@@ -187,6 +187,10 @@ class MQTTDevice:
             self._device.remove_device()
             logger.info("%s device deleted", self._root_topic)
 
+    def republish(self) -> None:
+        if self._device:
+            self._device.republish()
+
     def _done(self, f):
         try:
             f.result()

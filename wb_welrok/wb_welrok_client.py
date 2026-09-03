@@ -1,12 +1,8 @@
 import asyncio
 import logging
-import signal
-import traceback
 from typing import Dict, Optional, Set, TypedDict
 
-from wb_welrok import config
 from wb_welrok.mqtt_client import MQTTClient
-from wb_welrok.wb_mqtt_device import MQTTDevice
 from wb_welrok.wb_welrok_device import WelrokDevice
 
 logger = logging.getLogger(__name__)
@@ -25,46 +21,61 @@ class WelrokClient:
         self.active_devices: Dict[str, DeviceEntry] = {}
         self.initializing: Set[str] = set()
         self.monitor_task: Optional[asyncio.Task] = None
+        self.mqtt_client: Optional[MQTTClient] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._stop_event: Optional[asyncio.Event] = None
+        self._connected_event: Optional[asyncio.Event] = None
+        self._stop_requested = False
+        self._exit_code = 7
+        self._ever_connected = False
+        self._outage_logged = False
 
-    async def _exit_gracefully(self):
-        logger.info("Cancelling all device tasks")
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+    def request_stop(self, exit_code: int = 7) -> None:
+        if exit_code == 2:
+            self._exit_code = 2
+        self._stop_requested = True
+        if self._stop_event is not None:
+            self._stop_event.set()
 
-    def _on_term_signal(self):
-        logger.info("Termination signal received, exiting")
-        asyncio.create_task(self._exit_gracefully())
+    def _schedule_in_loop(self, callback, *args) -> None:
+        if self._loop is not None and self._loop.is_running():
+            self._loop.call_soon_threadsafe(callback, *args)
 
-    def _on_mqtt_client_connect(self, _, __, ___, rc):
+    def _handle_mqtt_connect(self, rc: int) -> None:
         if rc == 0:
+            reconnect = self._ever_connected
+            self._ever_connected = True
             self.mqtt_client_running = True
-            logger.info("MQTT client connected")
-
-    def _on_mqtt_client_disconnect(self, _, userdata, rc):
-        self.mqtt_client_running = False
-        # Normal disconnect (rc == 0) - log and keep service running.
-        if rc == 0:
-            logger.info("MQTT client disconnected normally (rc=%s)", rc)
+            if self._connected_event is not None:
+                self._connected_event.set()
+            if reconnect or self._outage_logged:
+                logger.info("MQTT broker connection restored")
+                for entry in self.active_devices.values():
+                    entry["welrok"].republish()
+            else:
+                logger.info("MQTT client connected")
+            self._outage_logged = False
             return
 
-        # Error disconnect (rc != 0) - log and schedule graceful shutdown so
-        # supervisor/systemd can handle restarts or repairs if needed.
-        logger.warning("MQTT client disconnected with error (rc=%s), scheduling shutdown", rc)
-        if userdata is not None:
-            try:
-                asyncio.run_coroutine_threadsafe(self._exit_gracefully(), userdata)
-            except Exception:
-                logger.exception("Error scheduling exit on disconnect")
+        self.mqtt_client_running = False
+        if rc in (4, 5):
+            logger.error("MQTT authentication failed (rc=%s)", rc)
+            self.request_stop(2)
+        elif not self._outage_logged:
+            self._outage_logged = True
+            logger.warning("MQTT connection refused (rc=%s), retrying", rc)
 
-    def _on_term_signal(self):
-        asyncio.create_task(self._exit_gracefully())
-        logger.info("SIGTERM or SIGINT received, exiting")
+    def _on_mqtt_client_connect(self, _, __, ___, rc):
+        self._schedule_in_loop(self._handle_mqtt_connect, rc)
 
-    async def _wait_for_mqtt_connect(self):
-        while not self.mqtt_client_running:
-            await asyncio.sleep(0.1)
+    def _handle_mqtt_disconnect(self, rc: int) -> None:
+        self.mqtt_client_running = False
+        if rc != 0 and not self._outage_logged:
+            self._outage_logged = True
+            logger.warning("MQTT broker connection lost (rc=%s), retrying", rc)
+
+    def _on_mqtt_client_disconnect(self, _, __, rc):
+        self._schedule_in_loop(self._handle_mqtt_disconnect, rc)
 
     async def init_device(self, device_config):
         device_id = device_config.get("device_id")
@@ -80,7 +91,8 @@ class WelrokClient:
 
             def done_callback(t):
                 logger.info("Device task %s finished", device_id)
-                asyncio.create_task(self.remove_device(device_id))
+                if not t.cancelled() and t.exception() is not None:
+                    logger.error("Device task %s failed: %s", device_id, t.exception())
 
             task.add_done_callback(done_callback)
         except Exception:
@@ -91,12 +103,19 @@ class WelrokClient:
     async def remove_device(self, device_id):
         entry = self.active_devices.pop(device_id, None)
         if entry:
+            task = entry["task"]
+            if not task.done():
+                task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
             try:
-                entry["welrok"]._wb_mqtt_device.remove()
-                await entry["welrok"].close_session()
-                entry["task"].cancel()
+                if entry["welrok"]._wb_mqtt_device is not None:
+                    entry["welrok"]._wb_mqtt_device.remove()
             except Exception:
                 logger.exception("Error removing mqtt device %s", device_id)
+            try:
+                await entry["welrok"].close_session()
+            except Exception:
+                logger.exception("Error closing HTTP session for device %s", device_id)
 
     async def monitor_devices(self):
         while True:
@@ -107,7 +126,7 @@ class WelrokClient:
                     if device_id and (
                         device_id not in self.active_devices or self.active_devices[device_id]["task"].done()
                     ):
-                        asyncio.create_task(self.init_device(device_config))
+                        await self.init_device(device_config)
 
                 for dev_id in list(self.active_devices.keys()):
                     if dev_id not in configured_ids:
@@ -121,9 +140,11 @@ class WelrokClient:
                 logger.exception("Error in monitor_devices loop")
 
     async def run(self):
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
-        loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
+        self._loop = asyncio.get_running_loop()
+        self._stop_event = asyncio.Event()
+        self._connected_event = asyncio.Event()
+        if self._stop_requested:
+            self._stop_event.set()
 
         self.mqtt_client = MQTTClient("welrok", self.mqtt_server_uri)
         self.mqtt_client.user_data_set(self)
@@ -132,20 +153,39 @@ class WelrokClient:
         self.mqtt_client.start()
 
         try:
-            await asyncio.wait_for(self._wait_for_mqtt_connect(), timeout=5.0)
-        except asyncio.TimeoutError:
-            logger.warning("MQTT client did not connect within timeout")
+            connected_task = asyncio.create_task(self._connected_event.wait())
+            stop_task = asyncio.create_task(self._stop_event.wait())
+            done, pending = await asyncio.wait(
+                (connected_task, stop_task), timeout=5.0, return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            if stop_task in done:
+                return self._exit_code
+            if not done:
+                self._outage_logged = True
+                logger.warning("MQTT broker is unavailable, retrying")
 
-        self.monitor_task = asyncio.create_task(self.monitor_devices())
-
-        try:
-            await self.monitor_task
-        except asyncio.CancelledError:
-            logger.info("WelrokClient run cancelled")
+            self.monitor_task = asyncio.create_task(self.monitor_devices())
+            stop_task = asyncio.create_task(self._stop_event.wait())
+            done, pending = await asyncio.wait(
+                (self.monitor_task, stop_task), return_when=asyncio.FIRST_COMPLETED
+            )
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            if self.monitor_task in done and not self._stop_event.is_set():
+                await self.monitor_task
+                logger.error("Device monitor stopped unexpectedly")
+                self._exit_code = 1
         finally:
-            if self.monitor_task:
+            if self.monitor_task and not self.monitor_task.done():
                 self.monitor_task.cancel()
+                await asyncio.gather(self.monitor_task, return_exceptions=True)
             for dev_id in list(self.active_devices.keys()):
                 await self.remove_device(dev_id)
-            self.mqtt_client.stop()
+            if self.mqtt_client is not None:
+                self.mqtt_client.stop()
             logger.info("MQTT client stopped")
+        return self._exit_code

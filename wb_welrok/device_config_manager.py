@@ -4,8 +4,8 @@ from dataclasses import fields
 from typing import List
 
 import jsonschema
-
 from wb_welrok.config import DEFAULT_BROKER_URL
+from wb_welrok.mqtt_client import MQTTClient
 from wb_welrok.schemas import DeviceConfig
 
 logger = logging.getLogger(__name__)
@@ -44,9 +44,10 @@ class ConfigManager:
                     for d in config_data.get("devices", [])
                 ]
                 self.mqtt_server_uri = config_data.get("mqtt_server_uri", self.mqtt_server_uri)
+                MQTTClient.validate_broker_url(self.mqtt_server_uri)
                 self.debug = config_data.get("debug", False)
             return self
-        except (jsonschema.ValidationError, ValueError, FileNotFoundError, TypeError) as e:
+        except (jsonschema.ValidationError, OSError, ValueError, TypeError) as e:
             logger.error("Failed to load config %s: %s", self.config_path, e)
             return None
 

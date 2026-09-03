@@ -1,234 +1,121 @@
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+import json
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
-from wb_welrok import config
-from wb_welrok.wb_mqtt_device import MQTTDevice
+from wb_welrok.device_config_manager import ConfigManager
+from wb_welrok.main import main
+from wb_welrok.schemas import DeviceConfig
 from wb_welrok.wb_welrok_client import WelrokClient
-from wb_welrok.wb_welrok_device import WelrokDevice
+from wb_welrok.wbmqtt import ControlMeta, Device
 
 
-class TestWelrokDevice:
-    """Test for WelrokDevice"""
-
-    @pytest.fixture
-    def device_config(self):
-        return {
-            "device_id": "test_device",
-            "device_title": "Test Device",
-            "serial_number": "SN123",
-            "device_ip": "192.168.1.100",
-            "mqtt_enable": False,
-            "mqtt_server_uri": "tcp://localhost:1883",
-            "inner_mqtt_pubprefix": "pub/",
-            "inner_mqtt_client_id": "client1",
-            "inner_mqtt_subprefix": "sub/",
-        }
-
-    @pytest.fixture
-    def welrok_device(self, device_config):
-        with patch("wb_welrok.mqtt_client.MQTTClient"):
-            device = WelrokDevice(device_config)
-            return device
-
-    def test_init(self, welrok_device, device_config):
-        """Test WelrokDevice initialization"""
-        assert welrok_device.id == device_config["device_id"]
-        assert welrok_device.sn == device_config["serial_number"]
-        assert welrok_device.title == device_config["device_title"]
-        assert welrok_device.ip == device_config["device_ip"]
-        assert welrok_device._url == "http://192.168.1.100/api.cgi"
-
-    def test_init_no_ip(self):
-        """Test initialization without IP"""
-        config_dict = {
-            "device_id": "test",
-            "device_title": "Test",
-            "serial_number": "SN",
-            "mqtt_server_uri": "tcp://localhost:1883",
-        }
-        with patch("wb_welrok.mqtt_client.MQTTClient"):
-            device = WelrokDevice(config_dict)
-            assert device._url is None
-
-    def test_parse_device_params_state(self, welrok_device):
-        """Test parsing device parameters state"""
-        data = {
-            "par": [
-                [125, 7, "0"],  # powerOff
-                [23, 2, "5"],  # bright
-                [31, 3, "250"],  # setTemp
-            ]
-        }
-
-        result = welrok_device.parse_device_params_state(data)
-
-        assert result is not None
-        assert "powerOff" in result
-        assert "bright" in result
-        assert "setTemp" in result
-        assert result["setTemp"] == 25.0  # 250 / 10
-
-    def test_parse_temperature_response(self, welrok_device):
-        """Test parsing temperature response"""
-        data = {
-            "t.1": "320",  # 320 / 16 = 20.0
-            "t.2": "352",  # 352 / 16 = 22
-        }
-
-        result = welrok_device.parse_temperature_response(data)
-
-        assert "Floor temperature" in result
-        assert result["Floor temperature"] == "20.0"
-
-    def test_get_load(self, welrok_device):
-        """Test getting load status"""
-        telemetry_on = {"f.0": "1"}
-        telemetry_off = {"f.0": "0"}
-
-        assert welrok_device.get_load(telemetry_on) == "Включено"
-        assert welrok_device.get_load(telemetry_off) == "Выключено"
-        assert welrok_device.get_load({}) == "off"
+def make_config(devices=None, broker="tcp://127.0.0.1:1883"):
+    return SimpleNamespace(devices=devices or [], mqtt_server_uri=broker, debug=False)
 
 
-class TestMQTTDevice:
-    """Tests for MQTTDevice"""
+def test_empty_configuration_exits_with_status_7():
+    configured = make_config([DeviceConfig()])
+    with patch("wb_welrok.main.ConfigManager") as manager, patch("wb_welrok.main.setup_logging"):
+        manager.return_value.load_and_validate.return_value = configured
 
-    @pytest.fixture
-    def device_state(self):
-        return {
-            "powerOff": 0,
-            "bright": 5,
-            "setTemp": 22,
-            "mode": "Manual",
-            "load": "on",
-            "read_only_temp": {
-                "Floor temperature": "20.0",
-                "Air temperature": "21.0",
-            },
-        }
-
-    @pytest.fixture
-    def mqtt_device(self, device_state):
-        mock_client = MagicMock()
-        with patch("asyncio.get_running_loop"):
-            device = MQTTDevice(mock_client, device_state)
-            return device
-
-    def test_init(self, mqtt_device, device_state):
-        """Test MQTTDevice initialization"""
-        assert mqtt_device._device_state == device_state
-        assert mqtt_device._device is None
-        assert mqtt_device._welrok_device is None
-
-    def test_set_welrok_device(self, mqtt_device):
-        """Test attaching Welrok device"""
-        mock_welrok = MagicMock()
-        mock_welrok.title = "Test Device"
-        mock_welrok.sn = "SN123"
-
-        mqtt_device.set_welrok_device(mock_welrok)
-
-        assert mqtt_device._welrok_device is mock_welrok
-        assert mqtt_device._root_topic == "/devices/Test Device"
-
-    def test_on_message_power_event_loop_closed(self, mqtt_device):
-        """Test handling power message when event loop is closed"""
-        mock_welrok = MagicMock()
-        mock_welrok.sn = "SN123"
-        mqtt_device._welrok_device = mock_welrok
-
-        mock_loop = MagicMock()
-        mock_loop.is_closed.return_value = True
-        mqtt_device._loop = mock_loop
-
-        msg = MagicMock()
-        msg.payload.decode.return_value = "1"
-
-        # Should not raise an exception
-        mqtt_device._on_message_power(None, None, msg)
-
-    def test_on_message_temperature_valid(self, mqtt_device):
-        """Test handling a valid temperature"""
-        mock_welrok = MagicMock()
-        mock_welrok.sn = "SN123"
-        mqtt_device._welrok_device = mock_welrok
-
-        mock_loop = MagicMock()
-        mock_loop.is_closed.return_value = False
-        mqtt_device._loop = mock_loop
-
-        msg = MagicMock()
-        msg.payload.decode.return_value = "25"
-
-        with patch("asyncio.run_coroutine_threadsafe") as mock_run:
-            mqtt_device._on_message_temperature(None, None, msg)
-
-            mock_run.assert_called_once()
+        assert main(["wb-welrok"]) == 7
 
 
-class TestWelrokClient:
-    """Tests for WelrokClient"""
+def test_unreadable_configuration_exits_with_status_6(tmp_path):
+    with patch("wb_welrok.main.config.SCHEMA_FILEPATH", str(tmp_path / "schema.json")):
+        assert main(["wb-welrok", "-c", str(tmp_path)]) == 6
 
-    @pytest.fixture
-    def devices_config(self):
-        return [
+
+def test_invalid_broker_is_rejected_by_config_manager(tmp_path):
+    schema_path = Path(__file__).parents[1] / "wb-mqtt-welrok.schema.json"
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
             {
-                "device_id": "device1",
-                "device_title": "Device 1",
-                "serial_number": "SN001",
-                "device_ip": "192.168.1.101",
-                "mqtt_server_uri": "tcp://localhost:1883",
+                "devices": [],
+                "debug": False,
+                "mqtt_server_uri": "tcp://localhost",
             }
-        ]
+        ),
+        encoding="utf-8",
+    )
 
-    @pytest.fixture
-    def welrok_client(self, devices_config):
-        return WelrokClient(devices_config)
+    assert ConfigManager(str(config_path), str(schema_path)).load_and_validate() is None
 
-    def test_init(self, welrok_client, devices_config):
-        """Test WelrokClient initialization"""
-        assert welrok_client.devices_config == devices_config
-        assert welrok_client.mqtt_server_uri == "tcp://localhost:1883"
-        assert welrok_client.mqtt_client_running is False
 
-    def test_on_mqtt_client_connect_success(self, welrok_client):
-        """Test successful MQTT client connection"""
-        welrok_client._on_mqtt_client_connect(None, None, None, 0)
+def test_device_republishes_metadata_values_and_subscriptions():
+    mqtt = MagicMock()
+    mqtt.publish.return_value.rc = 0
+    device = Device(mqtt, "thermostat", "Thermostat", "wb-mqtt-welrok")
+    callback = MagicMock()
+    device.create_control("Power", ControlMeta(control_type="switch"), "1")
+    device.add_control_message_callback("Power", callback)
+    mqtt.reset_mock()
+    mqtt.publish.return_value.rc = 0
 
-        assert welrok_client.mqtt_client_running is True
+    device.republish()
 
-    def test_on_mqtt_client_connect_failure(self, welrok_client):
-        """Test failed MQTT client connection"""
-        welrok_client._on_mqtt_client_connect(None, None, None, 1)
+    mqtt.publish.assert_any_call("/devices/thermostat/meta/name", "Thermostat", retain=True)
+    mqtt.publish.assert_any_call("/devices/thermostat/controls/Power", "1", retain=True)
+    mqtt.subscribe.assert_called_once_with("/devices/thermostat/controls/Power/on")
+    mqtt.message_callback_add.assert_called_once_with("/devices/thermostat/controls/Power/on", callback)
 
-        assert welrok_client.mqtt_client_running is False
 
-    def test_on_mqtt_client_disconnect_normal(self, welrok_client):
-        """Test normal disconnection (rc=0)"""
-        welrok_client.mqtt_client_running = True
-        mock_loop = MagicMock()
+def test_root_mqtt_reconnect_republishes_active_devices():
+    client = WelrokClient(make_config([DeviceConfig(device_id="thermostat")]))
+    welrok = MagicMock()
+    client.active_devices["thermostat"] = {"task": MagicMock(), "welrok": welrok}
 
-        # rc=0 should not call _exit_gracefully
-        with patch("asyncio.run_coroutine_threadsafe") as mock_run:
-            # ensure any coroutine passed to the mock is closed to avoid warnings
-            mock_run.side_effect = lambda coro, loop: coro.close()
-            welrok_client._on_mqtt_client_disconnect(None, mock_loop, 0)
+    client._handle_mqtt_connect(0)
+    client._handle_mqtt_disconnect(1)
+    client._handle_mqtt_connect(0)
 
-            mock_run.assert_not_called()
-            assert welrok_client.mqtt_client_running is False
+    welrok.republish.assert_called_once_with()
+    assert client.mqtt_client_running is True
 
-    def test_on_mqtt_client_disconnect_error(self, welrok_client):
-        """Test disconnection with error (rc!=0)"""
-        welrok_client.mqtt_client_running = True
-        mock_loop = MagicMock()
 
-        # rc!=0 should call _exit_gracefully
-        with patch("asyncio.run_coroutine_threadsafe") as mock_run:
-            # make the mock consume the coroutine to avoid un-awaited coroutine warnings
-            mock_run.side_effect = lambda coro, loop: coro.close()
-            welrok_client._on_mqtt_client_disconnect(None, mock_loop, 1)
+class RefusingMQTTClient:
+    instance = None
 
-            mock_run.assert_called_once()
-            assert welrok_client.mqtt_client_running is False
+    def __init__(self, *_args, **_kwargs):
+        self.userdata = None
+        self.stopped = False
+        RefusingMQTTClient.instance = self
+
+    def user_data_set(self, userdata):
+        self.userdata = userdata
+
+    def start(self):
+        self.on_connect(self, self.userdata, {}, 5)
+
+    def stop(self):
+        self.stopped = True
+
+
+def test_authentication_refusal_exits_with_status_2():
+    async def run_client():
+        client = WelrokClient(make_config([DeviceConfig(device_id="thermostat")]))
+        with patch("wb_welrok.wb_welrok_client.MQTTClient", RefusingMQTTClient):
+            assert await asyncio.wait_for(client.run(), timeout=1) == 2
+
+    asyncio.run(run_client())
+    assert RefusingMQTTClient.instance.stopped is True
+
+
+def test_removing_unavailable_device_closes_session():
+    async def remove_device():
+        client = WelrokClient(make_config())
+        task = asyncio.create_task(asyncio.sleep(10))
+        welrok = MagicMock()
+        welrok._wb_mqtt_device = None
+        welrok.close_session = AsyncMock()
+        client.active_devices["thermostat"] = {"task": task, "welrok": welrok}
+
+        await client.remove_device("thermostat")
+
+        assert task.cancelled()
+        welrok.close_session.assert_awaited_once_with()
+
+    asyncio.run(remove_device())

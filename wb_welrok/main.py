@@ -4,10 +4,7 @@ import json
 import logging
 import signal
 import sys
-import traceback
 from typing import Optional
-
-import jsonschema
 
 from wb_welrok import config
 from wb_welrok.device_config_manager import ConfigManager
@@ -50,6 +47,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         return 6
 
     setup_logging(config_devices.debug)
+    if not any(device.device_id for device in config_devices.devices):
+        logger.info("No Welrok devices configured")
+        return 7
     logger.info("Welrok service starting")
 
     welrok_client = WelrokClient(config_devices)
@@ -59,8 +59,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     def shutdown():
         logger.info("Received stop signal, shutting down")
-        for task in asyncio.all_tasks(loop):
-            task.cancel()
+        welrok_client.request_stop(7)
 
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, shutdown)
@@ -69,8 +68,16 @@ def main(argv: Optional[list[str]] = None) -> int:
         result = loop.run_until_complete(welrok_client.run())
     except asyncio.CancelledError:
         logger.info("Shutdown complete")
-        result = 0
+        result = 7
     finally:
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.remove_signal_handler(sig)
+        pending = asyncio.all_tasks(loop)
+        for task in pending:
+            task.cancel()
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+        loop.run_until_complete(loop.shutdown_asyncgens())
         loop.close()
         logger.info("Welrok service stopped")
 
