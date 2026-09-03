@@ -59,6 +59,7 @@ class WelrokClient:
 
         self.mqtt_client_running = False
         if rc in (4, 5):
+            self._outage_logged = True
             logger.error("MQTT authentication failed (rc=%s)", rc)
             self.request_stop(2)
         elif not self._outage_logged:
