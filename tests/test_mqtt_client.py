@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 import pytest
+
 from wb_welrok.mqtt_client import MQTTClient
 
 

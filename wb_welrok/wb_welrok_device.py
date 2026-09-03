@@ -5,6 +5,7 @@ import traceback
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 import aiohttp
+
 from wb_welrok import config
 from wb_welrok.decorators import retry
 from wb_welrok.mqtt_client import MQTTClient

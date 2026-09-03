@@ -4,6 +4,7 @@ from dataclasses import fields
 from typing import List
 
 import jsonschema
+
 from wb_welrok.config import DEFAULT_BROKER_URL
 from wb_welrok.mqtt_client import MQTTClient
 from wb_welrok.schemas import DeviceConfig
