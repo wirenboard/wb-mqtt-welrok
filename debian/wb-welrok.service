@@ -9,7 +9,10 @@ Restart=on-failure
 RestartSec=5
 User=root
 ExecStart=/usr/bin/wb-welrok
-RestartPreventExitStatus=6
+# 2: bad arguments or a rejected MQTT login, 6: missing or invalid config
+RestartPreventExitStatus=2 6
+# 7: no devices with an id are configured, nothing to do
+SuccessExitStatus=7
 
 [Install]
 WantedBy=multi-user.target

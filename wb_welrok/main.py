@@ -2,18 +2,20 @@ import argparse
 import asyncio
 import json
 import logging
-import signal
 import sys
-import traceback
 from typing import Optional
-
-import jsonschema
 
 from wb_welrok import config
 from wb_welrok.device_config_manager import ConfigManager
 from wb_welrok.wb_welrok_client import WelrokClient
 
 logger = logging.getLogger(__name__)
+
+# Exit codes from the WB service guideline; 2 and 6 are RestartPreventExitStatus in the unit,
+# 7 is a SuccessExitStatus. argparse exits with 2 on bad arguments by itself.
+EXIT_SUCCESS = 0
+EXIT_NOTCONFIGURED = 6
+EXIT_NOTRUNNING = 7
 
 
 def setup_logging(debug: bool = False) -> None:
@@ -40,41 +42,30 @@ def main(argv: Optional[list[str]] = None) -> int:
     args = parser.parse_args(argv[1:])
 
     if args.j:
-        config_file = to_json(args.config)
+        try:
+            config_file = to_json(args.config)
+        except (OSError, ValueError) as exc:  # json.JSONDecodeError is a ValueError
+            logger.error("Cannot read %s: %s", args.config, exc)
+            return EXIT_NOTCONFIGURED
         json.dump(config_file, sys.stdout, sort_keys=True, indent=2)
-        return 0
+        return EXIT_SUCCESS
 
     config_devices = ConfigManager(args.config, config.SCHEMA_FILEPATH).load_and_validate()
     if config_devices is None:
         logger.error("Invalid configuration, exiting")
-        return 6
+        return EXIT_NOTCONFIGURED
 
     setup_logging(config_devices.debug)
+    if not config_devices.devices:
+        logger.info("No devices with an id are configured, nothing to do")
+        return EXIT_NOTRUNNING
+
     logger.info("Welrok service starting")
-
-    welrok_client = WelrokClient(config_devices)
-
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    def shutdown():
-        logger.info("Received stop signal, shutting down")
-        for task in asyncio.all_tasks(loop):
-            task.cancel()
-
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, shutdown)
-
     try:
-        result = loop.run_until_complete(welrok_client.run())
-    except asyncio.CancelledError:
-        logger.info("Shutdown complete")
-        result = 0
+        # run() installs the SIGINT/SIGTERM handlers and returns the exit code
+        return asyncio.run(WelrokClient(config_devices).run())
     finally:
-        loop.close()
         logger.info("Welrok service stopped")
-
-    return result
 
 
 if __name__ == "__main__":

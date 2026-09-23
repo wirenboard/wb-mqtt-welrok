@@ -286,6 +286,17 @@ class WelrokDevice:
     def ip(self):
         return self._ip
 
+    def republish_mqtt(self) -> None:
+        """
+        Republish the WB device after a broker reconnect, controls and command subscriptions alike.
+        """
+        if self._wb_mqtt_device:
+            self._wb_mqtt_device.republish()
+
+    def remove_mqtt_device(self) -> None:
+        if self._wb_mqtt_device:
+            self._wb_mqtt_device.remove()
+
     def set_mqtt_device(self, device_controls_state, telemetry):
         device_controls_state.update(
             {

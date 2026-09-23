@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import random
 import string
@@ -10,10 +9,24 @@ MQTT_KEEPALIVE = 30  # seconds
 MQTT_RECONNECT_MIN_DELAY = 1  # seconds
 MQTT_RECONNECT_MAX_DELAY = 120  # seconds
 
-RETRY_DELAY = 2  # seconds
-MAX_RETRIES = 5
+# CONNACK codes for a rejected login: bad user name or password, not authorized
+MQTT_AUTH_ERRORS = (4, 5)
+BROKER_URL_SCHEMES = ("unix", "mqtt-tcp", "tcp", "ws")
 
 logger = logging.getLogger(__name__)
+
+
+def validate_broker_url(broker_url: str) -> None:
+    """
+    Raise ValueError for a URL no connection attempt could ever succeed with.
+    """
+    url = urlparse(broker_url)
+    if url.scheme not in BROKER_URL_SCHEMES:
+        raise ValueError(f"unknown MQTT URL scheme in {broker_url!r}, expected one of {BROKER_URL_SCHEMES}")
+    if url.scheme == "unix" and not url.path:
+        raise ValueError(f"MQTT URL {broker_url!r} has no socket path")
+    if url.scheme != "unix" and not (url.hostname and url.port):
+        raise ValueError(f"MQTT URL {broker_url!r} needs a host and a port")
 
 
 class MQTTClient(paho_socket.Client):
@@ -29,58 +42,27 @@ class MQTTClient(paho_socket.Client):
         random_suffix = "".join(random.sample(string.ascii_letters + string.digits, suffix_length))
         return "%s-%s" % (client_id_prefix, random_suffix)
 
-    async def _connect_async(self):
-        max_retries = MAX_RETRIES
-        retry_delay = RETRY_DELAY
-        scheme = self._broker_url.scheme
-
-        for attempt in range(max_retries):
-            try:
-                logger.info(
-                    "Attempting MQTT connection to %s:%s (attempt %s)",
-                    self._broker_url.hostname,
-                    self._broker_url.port,
-                    attempt + 1,
-                )
-                if scheme == "unix":
-                    self.sock_connect(self._broker_url.path)
-                    logger.info("MQTT connected via UNIX socket")
-                elif scheme in ["mqtt-tcp", "tcp", "ws"] and self._broker_url.port:
-                    logger.info("MQTT connected via %s", self._broker_url)
-                    self.connect(self._broker_url.hostname, self._broker_url.port, keepalive=MQTT_KEEPALIVE)
-                    logger.info("MQTT connected via %s", scheme.upper())
-                else:
-                    raise ValueError(f"Unknown MQTT URL scheme: {scheme}")
-                logger.info("MQTT connection successful")
-                return
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    logger.warning(
-                        "MQTT connection attempt %s failed: %s. Retrying in %ss...",
-                        attempt + 1,
-                        e,
-                        retry_delay,
-                    )
-                    await asyncio.sleep(retry_delay)
-                else:
-                    logger.error("MQTT connection failed after %s attempts: %s", max_retries, e)
-                    raise
-
     def start(self) -> None:
-        scheme = self._broker_url.scheme
-
+        """
+        Connect from paho's network thread. An unavailable broker is retried with the delays of
+        setup_reconnect() until stop(), and so is a lost connection; the URL was validated by the
+        config loader, so nothing is raised here.
+        """
         if self._broker_url.username:
             self.username_pw_set(self._broker_url.username, self._broker_url.password)
 
-        if scheme == "ws" and self._broker_url.path:
+        if self._broker_url.scheme == "ws" and self._broker_url.path:
             self.ws_set_options(self._broker_url.path)
 
         self.setup_reconnect()
 
+        if self._broker_url.scheme == "unix":
+            self.sock_connect_async(self._broker_url.path, keepalive=MQTT_KEEPALIVE)
+        else:
+            self.connect_async(self._broker_url.hostname, self._broker_url.port, keepalive=MQTT_KEEPALIVE)
+
         if self._is_threaded:
             self.loop_start()
-
-        asyncio.create_task(self._connect_async())
 
     def stop(self) -> None:
         try:
