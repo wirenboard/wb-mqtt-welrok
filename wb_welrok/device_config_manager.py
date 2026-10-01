@@ -6,6 +6,7 @@ from typing import List
 import jsonschema
 
 from wb_welrok.config import DEFAULT_BROKER_URL
+from wb_welrok.mqtt_client import validate_broker_url
 from wb_welrok.schemas import DeviceConfig
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,11 @@ class ConfigManager:
         self.debug: bool = False
 
     def load_and_validate(self):
+        """
+        Return self with the usable devices, or None when the config cannot be used at all.
+
+        A device without an id (the stub the default config ships with) is skipped, not an error.
+        """
         try:
             with open(self.config_path, "r", encoding="utf-8") as f_config, open(
                 self.schema_path, "r", encoding="utf-8"
@@ -29,7 +35,12 @@ class ConfigManager:
                 schema = json.load(f_schema)
                 jsonschema.validate(config_data, schema)
 
-                id_list = [device["device_id"] for device in config_data.get("devices", [])]
+                raw_devices = [d for d in config_data.get("devices", []) if d.get("device_id")]
+                if len(raw_devices) < len(config_data.get("devices", [])):
+                    logger.info(
+                        "Skipping %d device(s) without an id", len(config_data["devices"]) - len(raw_devices)
+                    )
+                id_list = [device["device_id"] for device in raw_devices]
                 if len(id_list) != len(set(id_list)):
                     raise ValueError("Device ID must be unique")
 
@@ -40,13 +51,22 @@ class ConfigManager:
 
                 known_fields = {f.name for f in fields(DeviceConfig)}
                 self.devices = [
-                    DeviceConfig(**{k: v for k, v in d.items() if k in known_fields})
-                    for d in config_data.get("devices", [])
+                    DeviceConfig(**{k: v for k, v in d.items() if k in known_fields}) for d in raw_devices
                 ]
                 self.mqtt_server_uri = config_data.get("mqtt_server_uri", self.mqtt_server_uri)
+                validate_broker_url(self.mqtt_server_uri)
                 self.debug = config_data.get("debug", False)
             return self
-        except (jsonschema.ValidationError, ValueError, FileNotFoundError, TypeError) as e:
+        # ValueError covers a broken JSON, a broken broker URL and duplicate ids; OSError a missing
+        # or unreadable file or schema; SchemaError a broken installed schema
+        except (
+            jsonschema.ValidationError,
+            jsonschema.SchemaError,
+            ValueError,
+            OSError,
+            TypeError,
+            KeyError,
+        ) as e:
             logger.error("Failed to load config %s: %s", self.config_path, e)
             return None
 

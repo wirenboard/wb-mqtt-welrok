@@ -1,3 +1,18 @@
+wb-welrok (0.2.0) unstable; urgency=medium
+
+  * Retry an unavailable MQTT broker for as long as it takes, in paho's thread; keep running
+    through a lost connection; exit with 2 when the broker rejects the login
+  * Exit with 7 when no device has an id (the default config), with 6 on any config read
+    or validation error including a broken broker URL
+  * Republish the WB devices and re-subscribe their commands after a broker reconnect
+  * On SIGINT/SIGTERM stop the device tasks, remove the WB devices with a bounded wait for
+    the broker, close the HTTP sessions and exit 0
+  * Unit: mark exit code 7 as success and prevent restart on 2 and 6, per the WB service guideline
+  * Run the test suite during the package build; drop the obsolete test_main.py and
+    test_mqtt_client.py
+
+ -- Ekaterina Volkova <ekaterina.volkova@wirenboard.com>  Thu, 17 Sep 2026 16:19:10 +0000
+
 wb-welrok (0.1.13) unstable; urgency=medium
 
   * Clean up /etc/wb-mqtt-dali.conf on purge
