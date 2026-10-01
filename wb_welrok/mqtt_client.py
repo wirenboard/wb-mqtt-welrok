@@ -19,14 +19,20 @@ logger = logging.getLogger(__name__)
 def validate_broker_url(broker_url: str) -> None:
     """
     Raise ValueError for a URL no connection attempt could ever succeed with.
+
+    The message never repeats the URL: it may carry a password (the config editor asks for
+    tcp://user:password@host:1883), and the message ends up in the journal.
     """
-    url = urlparse(broker_url)
-    if url.scheme not in BROKER_URL_SCHEMES:
-        raise ValueError(f"unknown MQTT URL scheme in {broker_url!r}, expected one of {BROKER_URL_SCHEMES}")
-    if url.scheme == "unix" and not url.path:
-        raise ValueError(f"MQTT URL {broker_url!r} has no socket path")
-    if url.scheme != "unix" and not (url.hostname and url.port):
-        raise ValueError(f"MQTT URL {broker_url!r} needs a host and a port")
+    try:
+        url = urlparse(broker_url)
+        if url.scheme == "unix":
+            if url.path:
+                return
+        elif url.scheme in BROKER_URL_SCHEMES and url.hostname and url.port:
+            return
+    except ValueError:
+        pass
+    raise ValueError("MQTT URL must be unix:///path or tcp://host:port (also mqtt-tcp://, ws://)")
 
 
 class MQTTClient(paho_socket.Client):

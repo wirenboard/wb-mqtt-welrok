@@ -54,10 +54,24 @@ def test_valid_broker_urls_pass(url):
     validate_broker_url(url)
 
 
-@pytest.mark.parametrize("url", ["http://localhost:1883", "tcp://localhost", "unix://", "localhost:1883"])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:1883",
+        "tcp://localhost",
+        "unix://",
+        "localhost:1883",
+        "tcp://user:secret@localhost",
+        "tcp://user:secret#x@localhost:1883",
+    ],
+    ids=["unknown-scheme", "no-port", "no-socket-path", "no-scheme", "password-no-port", "hash-in-password"],
+)
 def test_invalid_broker_urls_raise(url):
-    with pytest.raises(ValueError):
+    """The message goes to the journal, so it never repeats the URL: it may carry a password."""
+    with pytest.raises(ValueError) as error:
         validate_broker_url(url)
+
+    assert "secret" not in str(error.value)
 
 
 def test_stub_devices_without_an_id_are_skipped(tmp_path):
