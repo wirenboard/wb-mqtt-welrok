@@ -40,9 +40,29 @@ class Device:
     def __init__(self, mqtt_client, device_mqtt_name: str, device_title: str, driver_name: str) -> None:
         self._mqtt_client = mqtt_client
         self._base_topic = f"/devices/{device_mqtt_name}"
+        self._device_title = device_title
+        self._driver_name = driver_name
         self._controls = {}
+        self._command_topics = set()
         self._publish(self._base_topic + "/meta/name", device_title)
         self._publish(self._base_topic + "/meta/driver", driver_name)
+
+    def republish(self) -> None:
+        """
+        Re-send every retained topic and re-subscribe the command topics from the connect handler.
+
+        The WB service guideline asks for the meta and the last control values to be republished and
+        the subscriptions restored after every (re)connect: the client uses a clean session, so paho
+        re-subscribes nothing on its own, and republishing retained topics is cheap and idempotent
+        whether or not the broker still holds them.
+        """
+        self._publish(self._base_topic + "/meta/name", self._device_title)
+        self._publish(self._base_topic + "/meta/driver", self._driver_name)
+        for mqtt_control_name, control in self._controls.items():
+            self._publish_control_meta(mqtt_control_name, control.meta)
+            self._publish(self._get_control_base_topic(mqtt_control_name), control.value)
+        for topic in self._command_topics:
+            self._mqtt_client.subscribe(topic)
 
     def remove_device(self) -> None:
         self._publish(self._base_topic + "/meta/driver", None)
@@ -114,6 +134,7 @@ class Device:
     def add_control_message_callback(self, mqtt_control_name: str, callback: callable) -> None:
         if mqtt_control_name in self._controls:
             control_base_topic = self._get_control_base_topic(mqtt_control_name)
+            self._command_topics.add(control_base_topic + "/on")
             self._mqtt_client.subscribe(control_base_topic + "/on")
             self._mqtt_client.message_callback_add(control_base_topic + "/on", callback)
         else:

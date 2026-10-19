@@ -44,6 +44,14 @@ build-arch:
 
 override_dh_virtualenv:
 	dh_virtualenv $(DH_VENV_ARGS)
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	# dh-virtualenv drops dh_auto_test from the sequence, so the suite runs here, with the
+	# interpreter of the venv just built: the code under test imports the pinned dependencies
+	# that ship. pytest comes from Build-Depends, the system dist-packages go after the venv's.
+	PYTHONDONTWRITEBYTECODE=1 debian/$(PACKAGE)/opt/venvs/$(PACKAGE)/bin/python -c \
+		'import sys; sys.path.append("/usr/lib/python3/dist-packages"); import pytest; \
+		sys.exit(pytest.main(["-p", "no:cacheprovider", "tests"]))'
+endif
 
 	# Clean up artifacts that are noisy for lintian and unnecessary in the
 	# packed venv (wheel caches, __pycache__ directories, Windows executables,

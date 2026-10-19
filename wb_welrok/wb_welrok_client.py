@@ -1,15 +1,16 @@
 import asyncio
 import logging
 import signal
-import traceback
 from typing import Dict, Optional, Set, TypedDict
 
-from wb_welrok import config
-from wb_welrok.mqtt_client import MQTTClient
-from wb_welrok.wb_mqtt_device import MQTTDevice
+from wb_welrok import wbmqtt
+from wb_welrok.mqtt_client import MQTT_AUTH_ERRORS, MQTTClient
 from wb_welrok.wb_welrok_device import WelrokDevice
 
 logger = logging.getLogger(__name__)
+
+EXIT_SUCCESS = 0
+EXIT_INVALIDARGUMENT = 2
 
 
 class DeviceEntry(TypedDict):
@@ -22,48 +23,51 @@ class WelrokClient:
         self.devices_config = devices_config
         self.mqtt_client_running = False
         self.mqtt_server_uri = devices_config.mqtt_server_uri
+        self.mqtt_client: Optional[MQTTClient] = None
         self.active_devices: Dict[str, DeviceEntry] = {}
         self.initializing: Set[str] = set()
         self.monitor_task: Optional[asyncio.Task] = None
+        self.exit_code = EXIT_SUCCESS
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._stop = asyncio.Event()
 
-    async def _exit_gracefully(self):
-        logger.info("Cancelling all device tasks")
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+    def stop(self, exit_code: int = EXIT_SUCCESS) -> None:
+        """
+        Ask run() to shut down. Call it from the event loop thread only.
+        """
+        self.exit_code = exit_code
+        self._stop.set()
 
     def _on_term_signal(self):
         logger.info("Termination signal received, exiting")
-        asyncio.create_task(self._exit_gracefully())
+        self.stop()
 
     def _on_mqtt_client_connect(self, _, __, ___, rc):
-        if rc == 0:
-            self.mqtt_client_running = True
-            logger.info("MQTT client connected")
-
-    def _on_mqtt_client_disconnect(self, _, userdata, rc):
-        self.mqtt_client_running = False
-        # Normal disconnect (rc == 0) - log and keep service running.
-        if rc == 0:
-            logger.info("MQTT client disconnected normally (rc=%s)", rc)
+        # runs on paho's network thread: only hand work over to the event loop
+        if rc != 0:
+            logger.error("MQTT connect failed, rc=%s", rc)
+            if rc in MQTT_AUTH_ERRORS:
+                # a rejected login is a configuration problem paho would retry forever: exit with 2
+                self._loop.call_soon_threadsafe(self.stop, EXIT_INVALIDARGUMENT)
             return
+        self.mqtt_client_running = True
+        logger.info("MQTT client connected")
+        # WB service guideline: re-subscribe and republish the meta and the last control values in the
+        # connect handler. paho re-subscribes nothing (clean session); the republish is cheap and
+        # idempotent, so we do not tell a broker restart from a plain reconnect
+        self._loop.call_soon_threadsafe(self._republish_devices)
 
-        # Error disconnect (rc != 0) - log and schedule graceful shutdown so
-        # supervisor/systemd can handle restarts or repairs if needed.
-        logger.warning("MQTT client disconnected with error (rc=%s), scheduling shutdown", rc)
-        if userdata is not None:
-            try:
-                asyncio.run_coroutine_threadsafe(self._exit_gracefully(), userdata)
-            except Exception:
-                logger.exception("Error scheduling exit on disconnect")
+    def _on_mqtt_client_disconnect(self, _, __, rc):
+        self.mqtt_client_running = False
+        if rc != 0:
+            logger.warning("MQTT client disconnected (rc=%s), reconnecting", rc)
 
-    def _on_term_signal(self):
-        asyncio.create_task(self._exit_gracefully())
-        logger.info("SIGTERM or SIGINT received, exiting")
+    def _republish_devices(self):
+        for entry in self.active_devices.values():
+            entry["welrok"].republish_mqtt()
 
     async def _wait_for_mqtt_connect(self):
-        while not self.mqtt_client_running:
+        while not self.mqtt_client_running and not self._stop.is_set():
             await asyncio.sleep(0.1)
 
     async def init_device(self, device_config):
@@ -90,13 +94,17 @@ class WelrokClient:
 
     async def remove_device(self, device_id):
         entry = self.active_devices.pop(device_id, None)
-        if entry:
-            try:
-                entry["welrok"]._wb_mqtt_device.remove()
-                await entry["welrok"].close_session()
-                entry["task"].cancel()
-            except Exception:
-                logger.exception("Error removing mqtt device %s", device_id)
+        if not entry:
+            return
+        # the task first: its finally unsubscribes and stops the thermostat's MQTT client, and no
+        # poll may publish into the WB device while it is being removed
+        entry["task"].cancel()
+        await asyncio.gather(entry["task"], return_exceptions=True)
+        try:
+            entry["welrok"].remove_mqtt_device()
+            await entry["welrok"].close_session()
+        except Exception:
+            logger.exception("Error removing mqtt device %s", device_id)
 
     async def monitor_devices(self):
         while True:
@@ -120,32 +128,38 @@ class WelrokClient:
             except Exception:
                 logger.exception("Error in monitor_devices loop")
 
-    async def run(self):
-        loop = asyncio.get_running_loop()
-        loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
-        loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
+    async def run(self) -> int:
+        """
+        Serve until SIGINT/SIGTERM or a rejected MQTT login; returns the exit code.
+        """
+        self._loop = asyncio.get_running_loop()
+        self._loop.add_signal_handler(signal.SIGTERM, self._on_term_signal)
+        self._loop.add_signal_handler(signal.SIGINT, self._on_term_signal)
 
         self.mqtt_client = MQTTClient("welrok", self.mqtt_server_uri)
-        self.mqtt_client.user_data_set(self)
         self.mqtt_client.on_connect = self._on_mqtt_client_connect
         self.mqtt_client.on_disconnect = self._on_mqtt_client_disconnect
         self.mqtt_client.start()
+        # the devices are published only on a live connection; paho retries the broker meanwhile
+        await self._wait_for_mqtt_connect()
 
-        try:
-            await asyncio.wait_for(self._wait_for_mqtt_connect(), timeout=5.0)
-        except asyncio.TimeoutError:
-            logger.warning("MQTT client did not connect within timeout")
+        if not self._stop.is_set():
+            self.monitor_task = asyncio.create_task(self.monitor_devices())
+            await self._stop.wait()
+        await self._shutdown()
+        return self.exit_code
 
-        self.monitor_task = asyncio.create_task(self.monitor_devices())
-
-        try:
-            await self.monitor_task
-        except asyncio.CancelledError:
-            logger.info("WelrokClient run cancelled")
-        finally:
-            if self.monitor_task:
-                self.monitor_task.cancel()
-            for dev_id in list(self.active_devices.keys()):
-                await self.remove_device(dev_id)
-            self.mqtt_client.stop()
-            logger.info("MQTT client stopped")
+    async def _shutdown(self):
+        if self.monitor_task:
+            self.monitor_task.cancel()
+            await asyncio.gather(self.monitor_task, return_exceptions=True)
+        for dev_id in list(self.active_devices.keys()):
+            await self.remove_device(dev_id)
+        if self.mqtt_client.is_connected():
+            # the retained clears are QoS 0: the token round trip (bounded by its own timeout)
+            # shows the broker has processed everything published before it
+            await asyncio.to_thread(wbmqtt.retain_hack, self.mqtt_client)
+        else:
+            logger.error("MQTT broker is not connected, retained topics cannot be removed")
+        self.mqtt_client.stop()
+        logger.info("MQTT client stopped")

@@ -182,6 +182,11 @@ class MQTTDevice:
         if self._device:
             self._device.set_control_error(control_name, error_text)
 
+    def republish(self) -> None:
+        if self._device:
+            self._device.republish()
+            logger.info("%s device republished", self._root_topic)
+
     def remove(self) -> None:
         if self._device:
             self._device.remove_device()
