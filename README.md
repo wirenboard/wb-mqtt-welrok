@@ -4,10 +4,12 @@
 
 [Welrok site](https://welrok.com/)
 
-This is a distribution of "wb-welrok" as a self-contained
-    Python virtualenv wrapped into a Debian package ("omnibus" package,
-    all passengers on board). The packaged virtualenv is kept in sync with
-    the host's interpreter automatically.
+The driver is packaged as a regular Debian package: its Python dependencies (`python3-aiohttp`,
+`python3-jsonschema`, `python3-paho-mqtt` >= 2.1) come from Debian.
+
+By default it connects to the local broker through `unix:///var/run/mosquitto/mosquitto.sock`;
+set `mqtt_server_uri` in `/etc/wb-welrok.conf` to use another broker, e.g.
+`tcp://user:password@host:1883`.
 
 ## Service lifecycle
 

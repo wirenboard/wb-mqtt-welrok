@@ -3,8 +3,7 @@ from typing import Callable
 
 CONFIG_FILEPATH = "/etc/wb-welrok.conf"
 SCHEMA_FILEPATH = "/usr/share/wb-mqtt-confed/schemas/wb-mqtt-welrok.schema.json"
-DEFAULT_BROKER_UNIX = "unix:///var/run/mosquitto/mosquitto.sock"
-DEFAULT_BROKER_URL = "tcp://127.0.0.1:1883"
+DEFAULT_BROKER_URL = "unix:///var/run/mosquitto/mosquitto.sock"
 
 MQTT_PUBLISH_TIMEOUT = 5
 HTTP_REREQUEST_TIMEOUT = 20

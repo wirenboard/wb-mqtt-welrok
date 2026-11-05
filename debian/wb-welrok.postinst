@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+if [ "$1" = "configure" ] && dpkg --compare-versions "$2" lt-nl 0.3.0~~; then
+    # versions before 0.3.0 shipped a virtualenv in /opt/venvs/wb-welrok; dpkg has removed its
+    # files by now, but not the __pycache__ written at runtime, which keeps the directory around
+    rm -rf /opt/venvs/wb-welrok
+    rmdir --ignore-fail-on-non-empty /opt/venvs 2>/dev/null || true
+fi
+
+#DEBHELPER#

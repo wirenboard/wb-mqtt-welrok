@@ -60,11 +60,20 @@ def test_valid_broker_urls_pass(url):
         "http://localhost:1883",
         "tcp://localhost",
         "unix://",
+        "unix://var/run/mosquitto/mosquitto.sock",
         "localhost:1883",
         "tcp://user:secret@localhost",
         "tcp://user:secret#x@localhost:1883",
     ],
-    ids=["unknown-scheme", "no-port", "no-socket-path", "no-scheme", "password-no-port", "hash-in-password"],
+    ids=[
+        "unknown-scheme",
+        "no-port",
+        "no-socket-path",
+        "unix-two-slashes",
+        "no-scheme",
+        "password-no-port",
+        "hash-in-password",
+    ],
 )
 def test_invalid_broker_urls_raise(url):
     """The message goes to the journal, so it never repeats the URL: it may carry a password."""
@@ -94,6 +103,13 @@ def test_stub_devices_without_an_id_are_skipped(tmp_path):
 )
 def test_unusable_config_returns_none(tmp_path, kwargs):
     assert ConfigManager(write_config(tmp_path, **kwargs), SCHEMA_PATH).load_and_validate() is None
+
+
+def test_broker_url_defaults_to_the_local_unix_socket(tmp_path):
+    path = tmp_path / "wb-welrok.conf"
+    path.write_text(json.dumps({"devices": [REAL_DEVICE], "debug": False}), encoding="utf-8")
+    manager = ConfigManager(str(path), SCHEMA_PATH).load_and_validate()
+    assert manager.mqtt_server_uri == "unix:///var/run/mosquitto/mosquitto.sock"
 
 
 def test_missing_config_returns_none(tmp_path):
@@ -133,24 +149,26 @@ async def _completed(value):
 
 
 @pytest.mark.parametrize(
-    "url, connect_method, args",
+    "url, transport, args",
     [
-        ("unix:///run/mosquitto.sock", "sock_connect_async", ("/run/mosquitto.sock",)),
-        ("tcp://localhost:1883", "connect_async", ("localhost", 1883)),
+        ("unix:///run/mosquitto.sock", "unix", ("/run/mosquitto.sock",)),
+        ("tcp://localhost:1883", "tcp", ("localhost", 1883)),
+        ("ws://localhost:9001", "websockets", ("localhost", 9001)),
     ],
 )
-def test_start_connects_in_the_network_thread(url, connect_method, args):
+def test_start_connects_in_the_network_thread(url, transport, args):
     """
     Nothing connects synchronously: paho's thread retries an unavailable broker with the
     configured delays instead of a bounded loop that gave up after a few attempts.
     """
     client = MQTTClient("test", url)
     with (
-        patch.object(client, connect_method) as connect,
+        patch.object(client, "connect_async") as connect,
         patch.object(client, "loop_start") as loop_start,
-        patch("wb_welrok.mqtt_client.paho_socket.Client.reconnect_delay_set") as reconnect_delay_set,
+        patch("wb_welrok.mqtt_client.paho_client.Client.reconnect_delay_set") as reconnect_delay_set,
     ):
         client.start()
+    assert client.transport == transport
     connect.assert_called_once_with(*args, keepalive=30)
     loop_start.assert_called_once_with()
     reconnect_delay_set.assert_called_once_with(min_delay=1, max_delay=120)

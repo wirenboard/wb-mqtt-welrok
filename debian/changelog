@@ -1,3 +1,14 @@
+wb-welrok (0.3.0) unstable; urgency=medium
+
+  * Use Python dependencies from Debian packages instead of a bundled
+    virtualenv
+  * Use paho-mqtt 2.1 (Debian trixie) instead of paho-mqtt 1.5 and paho-socket
+  * Connect to the local broker through its unix socket
+    (/var/run/mosquitto/mosquitto.sock) by default instead of
+    tcp://localhost:1883
+
+ -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Thu, 05 Nov 2026 14:17:11 +0400
+
 wb-welrok (0.2.0) unstable; urgency=medium
 
   * Retry an unavailable MQTT broker for as long as it takes, in paho's thread; keep running
