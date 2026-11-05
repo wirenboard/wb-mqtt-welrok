@@ -26,7 +26,7 @@ wb-welrok (0.2.0) unstable; urgency=medium
 
 wb-welrok (0.1.13) unstable; urgency=medium
 
-  * Clean up /etc/wb-mqtt-dali.conf on purge
+  * Clean up /etc/wb-welrok.conf on purge
 
  -- Nikolay Korotkiy <nikolay.korotkiy@wirenboard.com>  Tue, 11 Aug 2026 13:20:00 +0400
 
