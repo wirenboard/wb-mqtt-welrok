@@ -18,21 +18,21 @@
                     "type": "string",
                     "title": "WB MQTT id of the device",
                     "default": "",
-                    "description": "The ID will be used to create a branch in Wiren Board MQTT /devices/{ID}/",
+                    "description": "device_id_description",
                     "propertyOrder": 1
                 },
                 "device_title": {
                     "type": "string",
                     "title": "Device name",
                     "default": "",
-                    "description": "Displayed device name in the Wiren Board panel",
+                    "description": "device_title_description",
                     "propertyOrder": 2
                 },
                 "device_ip": {
                     "type": "string",
                     "title": "Thermostat API IP address",
                     "default": "",
-                    "description": "IP address of Welrok thermostat",
+                    "description": "device_ip_description",
                     "propertyOrder": 3,
                     "format": "ipv4"
                 },
@@ -40,35 +40,35 @@
                     "type": "string",
                     "title": "Internal mqtt client_id",
                     "default": "",
-                    "description": "Id specified on the Welrok thermostat in the Client ID field",
+                    "description": "inner_mqtt_client_id_description",
                     "propertyOrder": 4
                 },
                 "inner_mqtt_pubprefix": {
                     "type": "string",
                     "title": "Internal mqtt pubprefix",
                     "default": "",
-                    "description": "Topic specified on the Welrok thermostat in the Publish prefix field",
+                    "description": "inner_mqtt_pubprefix_description",
                     "propertyOrder": 5
                 },
                 "inner_mqtt_subprefix": {
                     "type": "string",
                     "title": "Internal mqtt subprefix",
                     "default": "",
-                    "description": "Topic specified on the Welrok thermostat in the Subscribe path field",
+                    "description": "inner_mqtt_subprefix_description",
                     "propertyOrder": 6
                 },
                 "serial_number": {
                     "type": "string",
                     "title": "Thermostat serial number",
                     "default": "",
-                    "description": "Required for local thermostat control",
+                    "description": "serial_number_description",
                     "propertyOrder": 7
                 },
                 "mqtt_enable": {
                     "type": "boolean",
                     "title": "Use MQTT",
                     "default": false,
-                    "description": "Use mqtt for control",
+                    "description": "mqtt_enable_description",
                     "propertyOrder": 8
                 }
             },
@@ -109,7 +109,7 @@
             "type": "string",
             "title": "MQTT broker URI",
             "default": "unix:///var/run/mosquitto/mosquitto.sock",
-            "description": "The default connects to the local broker through its unix socket. To use a broker over TCP with a user and password: 'tcp://user:password@host:1883'",
+            "description": "mqtt_server_uri_description",
             "propertyOrder": 2
         },
         "debug": {
@@ -130,6 +130,17 @@
         "disable_properties": true
     },
     "translations": {
+        "en": {
+            "device_id_description": "The ID will be used to create a branch in Wiren Board MQTT /devices/{ID}/",
+            "device_title_description": "Displayed device name in the Wiren Board panel",
+            "device_ip_description": "IP address of Welrok thermostat",
+            "inner_mqtt_client_id_description": "Id specified on the Welrok thermostat in the Client ID field",
+            "inner_mqtt_pubprefix_description": "Topic specified on the Welrok thermostat in the Publish prefix field",
+            "inner_mqtt_subprefix_description": "Topic specified on the Welrok thermostat in the Subscribe path field",
+            "serial_number_description": "Required for local thermostat control",
+            "mqtt_enable_description": "Use mqtt for control",
+            "mqtt_server_uri_description": "The default connects to the local broker through its unix socket. To use a broker over TCP with a user and password: 'tcp://user:password@host:1883'"
+        },
         "ru": {
             "Welrok Receivers": "Термостаты Welrok",
             "Device": "Устройство",
@@ -145,15 +156,15 @@
             "Names of thermostat data topics": "Названия топиков данных термостата",
             "Names of thermostat control topics": "Названия топиков управления термостатом",
             "Control via internal mqtt": "Управление через внутренний mqtt",
-            "Required for local thermostat control": "Необходим для локального управления термостатом",
-            "The ID will be used to create a branch in Wiren Board MQTT /devices/{ID}/":"ID будет использован для создания ветки в Wiren Board MQTT /devices/{ID}/",
-            "Displayed device name in the Wiren Board panel": "Отображаемое название устройства в панели Wiren Board",
-            "IP address of Welrok thermostat": "IP адрес терморегулятора Welrok",
-            "Id specified on the Welrok thermostat in the Client ID field": "Id заданный на терморегуляторе Welrok в поле Client ID",
-            "Topic specified on the Welrok thermostat in the Publish prefix field": "Топик заданный на терморегуляторе Welrok в поле Publish prefix",
-            "Topic specified on the Welrok thermostat in the Subscribe path field": "Топик заданный на терморегуляторе Welrok в поле Subscribe path",
-            "The default connects to the local broker through its unix socket. To use a broker over TCP with a user and password: 'tcp://user:password@host:1883'": "По умолчанию подключение к локальному брокеру через unix-сокет. Для подключения по TCP с пользователем и паролем: 'tcp://user:password@host:1883'",
-            "Use mqtt for control": "Использовать mqtt для управления"
+            "serial_number_description": "Необходим для локального управления термостатом",
+            "device_id_description": "ID будет использован для создания ветки в Wiren Board MQTT /devices/{ID}/",
+            "device_title_description": "Отображаемое название устройства в панели Wiren Board",
+            "device_ip_description": "IP адрес терморегулятора Welrok",
+            "inner_mqtt_client_id_description": "Id заданный на терморегуляторе Welrok в поле Client ID",
+            "inner_mqtt_pubprefix_description": "Топик заданный на терморегуляторе Welrok в поле Publish prefix",
+            "inner_mqtt_subprefix_description": "Топик заданный на терморегуляторе Welrok в поле Subscribe path",
+            "mqtt_server_uri_description": "По умолчанию подключение к локальному брокеру через unix-сокет. Для подключения по TCP с пользователем и паролем: 'tcp://user:password@host:1883'",
+            "mqtt_enable_description": "Использовать mqtt для управления"
         }
     }    
 }
