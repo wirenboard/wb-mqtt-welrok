@@ -1,101 +1,17 @@
 #!/usr/bin/make -f
-#
-# Build Debian package using https://github.com/spotify/dh-virtualenv
-#
-# The below targets create a clean copy of the workdir via
-# using "sdist", else "pip" goes haywire when installing from
-# sourcedir ".", because that includes the debian build stage,
-# and a recursive explosion ensues when symlinks are followed.
-#
-# It also ensures your MANIFEST is complete and at least covers
-# all files needed for a release build.
 
-# Increase trace logging, see debhelper(7) (uncomment to enable)
-#DH_VERBOSE=1
-
-export DH_VIRTUALENV_INSTALL_ROOT=/opt/venvs
-SNAKE=/usr/bin/python3
-EXTRA_REQUIREMENTS=--upgrade-pip --preinstall "setuptools>=38" --preinstall "wheel"
-DH_VENV_ARGS=--builtin-venv --python=$(SNAKE) $(EXTRA_REQUIREMENTS)
-PACKAGE=$(shell dh_listpackages)
-VERSION=$(shell $(SNAKE) setup.py --version)
-SDIST_DIR=debian/$(PACKAGE)-$(VERSION)
-
-
-.PHONY: clean build-arch override_dh_virtualenv override_dh_strip
-	# override_dh_shlibdeps
-
-clean:
-	test ! -d dist || rm -rf dist
-	test ! -d $(SDIST_DIR) || rm -rf $(SDIST_DIR)/*
-	rm -rf .eggs/ || true
-	dh $@ $(DH_VENV_ARGS)
-
-build-arch:
-	$(SNAKE) setup.py sdist --formats tar
-	mkdir -p $(SDIST_DIR)
-	tar -x -C $(SDIST_DIR) --strip-components=1 --exclude '*.egg-info' -f dist/*.tar
-	# Use the extracted sdist as the source directory to avoid running
-	# python-distutils handlers against the debian/ tree in the repo root.
-	dh $@ $(DH_VENV_ARGS) --sourcedir $(SDIST_DIR)
+export PYBUILD_NAME=wb-welrok
+# pybuild runs the tests from a copy of the package in the build dir; the config tests validate
+# against the schema shipped next to the sources
+export PYBUILD_BEFORE_TEST=cp {dir}/wb-mqtt-welrok.schema.json {build_dir}/
+export PYBUILD_AFTER_TEST=rm -f {build_dir}/wb-mqtt-welrok.schema.json
+export PYBUILD_TEST_ARGS=-p no:cacheprovider
 
 %:
-	dh $@ --with python-virtualenv
-
-override_dh_virtualenv:
-	dh_virtualenv $(DH_VENV_ARGS)
-ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
-	# dh-virtualenv drops dh_auto_test from the sequence, so the suite runs here, with the
-	# interpreter of the venv just built: the code under test imports the pinned dependencies
-	# that ship. pytest comes from Build-Depends, the system dist-packages go after the venv's.
-	PYTHONDONTWRITEBYTECODE=1 debian/$(PACKAGE)/opt/venvs/$(PACKAGE)/bin/python -c \
-		'import sys; sys.path.append("/usr/lib/python3/dist-packages"); import pytest; \
-		sys.exit(pytest.main(["-p", "no:cacheprovider", "tests"]))'
-endif
-
-	# Clean up artifacts that are noisy for lintian and unnecessary in the
-	# packed venv (wheel caches, __pycache__ directories, Windows executables,
-	# redundant easy_install wrappers, compiled python cache files).
-	VENV=debian/$(PACKAGE)/opt/venvs/$(PACKAGE)
-	# remove wheel caches created by pip
-	rm -rf $(VENV)/share/python-wheels || true
-	# remove compiled python caches
-	find $(VENV) -type d -name '__pycache__' -exec rm -rf {} + || true
-	find $(VENV) -type f -name '*.pyc' -exec rm -f {} + || true
-	# remove leftover wheel and pip binaries/metadata we don't want packaged
-	find $(VENV) -type f -iname '*.exe' -exec rm -f {} + || true
-	rm -f $(VENV)/bin/easy_install* || true
-
-
-override_dh_auto_clean:
-	# Prevent dh_auto_clean from invoking python-distutils/pyversions which
-	# isn't available in some build environments; make this step a no-op.
-	true
-
-override_dh_auto_configure:
-	# don't run python-distutils based configure; dh_virtualenv will handle
-	# package installation inside the venv
-	true
-
-override_dh_auto_build:
-	# Avoid calling pyversions via dh_auto_build (pyversions may be missing
-	# in minimal build environments). dh_virtualenv will build the venv.
-	true
-
-override_dh_strip:
-	dh_strip --exclude=cffi --exclude=_imaging
-
-override_dh_auto_install:
-	# Install files then remove any python __pycache__ directories from the
-	# binary package area to avoid lintian's package-installs-python-pycache-dir
-	dh_auto_install
-	find debian/$(shell dh_listpackages) -type d -name '__pycache__' -exec rm -rf {} + || true
+	dh $@ --buildsystem=pybuild
 
 override_dh_installsystemd:
 	dh_installsystemd --name=wb-welrok
-
-#override_dh_shlibdeps:
-#	dh_shlibdeps -X/x86/ -X/Cython/ -X/PIL/ -X/psycopg2/ -X/_yaml
 
 override_dh_genchanges:
 	# Ensure generated .changes use a valid Changed-By value in CI builds

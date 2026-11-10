@@ -4,7 +4,10 @@ debian/*.substvars
 debian/*.debhelper
 debian/debhelper-build-stamp
 .debhelper
-wb_welrok.egg-info/
+*.egg-info/
+.pybuild/
+build/
+debian/.debhelper/
 
 .DS_Store
 venv

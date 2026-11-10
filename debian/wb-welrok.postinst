@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -e
+
+CONFFILE=/etc/wb-welrok.conf
+OLD_BROKER_URI_RE='"mqtt_server_uri"([[:space:]]*:[[:space:]]*)"tcp://localhost:1883"'
+NEW_BROKER_URI='unix:///var/run/mosquitto/mosquitto.sock'
+
+if [ "$1" = "configure" ] && dpkg --compare-versions "$2" lt-nl 0.3.0~~; then
+    # versions before 0.3.0 shipped a virtualenv in /opt/venvs/wb-welrok; dpkg has removed its
+    # files by now, but not the __pycache__ written at runtime, which keeps the directory around
+    rm -rf /opt/venvs/wb-welrok
+    rmdir --ignore-fail-on-non-empty /opt/venvs 2>/dev/null || true
+
+    # versions before 0.3.0 shipped mqtt_server_uri = tcp://localhost:1883. A config edited by
+    # the user (any config with devices) is kept by dpkg as is, so move that unmodified default
+    # to the local broker's unix socket here. Only the exact default string is replaced: any
+    # other URI (127.0.0.1, credentials, another host or port) was set by the user and is kept.
+    if [ -f "$CONFFILE" ] && grep -Eq "$OLD_BROKER_URI_RE" "$CONFFILE"; then
+        sed -E -i "s#$OLD_BROKER_URI_RE#\"mqtt_server_uri\"\\1\"$NEW_BROKER_URI\"#g" "$CONFFILE"
+        echo "wb-welrok: switched mqtt_server_uri in $CONFFILE to $NEW_BROKER_URI"
+    fi
+fi
+
+#DEBHELPER#

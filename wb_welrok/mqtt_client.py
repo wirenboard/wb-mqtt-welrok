@@ -3,7 +3,7 @@ import random
 import string
 from urllib.parse import urlparse
 
-import paho_socket
+from paho.mqtt import client as paho_client
 
 MQTT_KEEPALIVE = 30  # seconds
 MQTT_RECONNECT_MIN_DELAY = 1  # seconds
@@ -26,7 +26,7 @@ def validate_broker_url(broker_url: str) -> None:
     try:
         url = urlparse(broker_url)
         if url.scheme == "unix":
-            if url.path:
+            if url.path and not url.netloc:
                 return
         elif url.scheme in BROKER_URL_SCHEMES and url.hostname and url.port:
             return
@@ -35,13 +35,17 @@ def validate_broker_url(broker_url: str) -> None:
     raise ValueError("MQTT URL must be unix:///path or tcp://host:port (also mqtt-tcp://, ws://)")
 
 
-class MQTTClient(paho_socket.Client):
+class MQTTClient(paho_client.Client):
     def __init__(self, client_id_prefix: str, broker_url: str, is_threaded: bool = True):
         self._broker_url = urlparse(broker_url)
         self._is_threaded = is_threaded
         client_id = self.generate_client_id(client_id_prefix)
-        transport = "websockets" if self._broker_url.scheme == "ws" else "tcp"
-        super().__init__(client_id=client_id, transport=transport)
+        transport = {"ws": "websockets", "unix": "unix"}.get(self._broker_url.scheme, "tcp")
+        super().__init__(
+            callback_api_version=paho_client.CallbackAPIVersion.VERSION1,
+            client_id=client_id,
+            transport=transport,
+        )
 
     @staticmethod
     def generate_client_id(client_id_prefix: str, suffix_length: int = 8) -> str:
@@ -63,7 +67,7 @@ class MQTTClient(paho_socket.Client):
         self.setup_reconnect()
 
         if self._broker_url.scheme == "unix":
-            self.sock_connect_async(self._broker_url.path, keepalive=MQTT_KEEPALIVE)
+            self.connect_async(self._broker_url.path, keepalive=MQTT_KEEPALIVE)
         else:
             self.connect_async(self._broker_url.hostname, self._broker_url.port, keepalive=MQTT_KEEPALIVE)
 

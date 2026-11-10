@@ -8,6 +8,3 @@ changelog-distribution-does-not-match-changes-file
 
 # The changes file can also have a bogus mail host which should be allowed
 bogus-mail-host-in-debian-changelog
-
-# If any other expected-but-noisy warnings are still present, consider
-# keeping more overrides in debian/wb-welrok.lintian-overrides too.

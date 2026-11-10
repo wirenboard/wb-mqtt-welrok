@@ -2,19 +2,24 @@ Source: wb-welrok
 Section: misc
 Priority: optional
 Maintainer: Ivan Belokrylov <belokrylov.i@welrok.com>
-Build-Depends:  debhelper-compat (= 13),
-                python3,
-                python3-venv,
-                python3-dev,
-                dh-virtualenv (>= 1.1),
-                python3-aiohttp (>= 3.7.4),
-                python3-jsonschema (>= 3.2.0),
-                python3-pytest <!nocheck>,
-                python3-pytest-asyncio <!nocheck>
+Build-Depends: debhelper-compat (= 13),
+               dh-sequence-python3,
+               python3-all,
+               python3-setuptools,
+               python3-aiohttp,
+               python3-jsonschema,
+               python3-paho-mqtt (>= 2.1.0~~),
+               python3-pytest <!nocheck>,
+               python3-pytest-asyncio <!nocheck>
 Standards-Version: 4.5.1
 
 Package: wb-welrok
 Architecture: all
-Depends: ${misc:Depends}, ${python3:Depends}
+Depends: ${misc:Depends},
+         ${python3:Depends},
+         python3-aiohttp,
+         python3-jsonschema,
+         python3-paho-mqtt (>= 2.1.0~~)
 Description: Wiren Board MQTT Driver for Welrok thermostat
- This is a distribution of "wb-welrok" packaged as a self-contained
+ Talks to Welrok thermostats over their HTTP API and publishes them as
+ Wiren Board MQTT devices.
